@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STOCK REPORTS LAB - 한국 증시 리포트</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; }
+        .chart-placeholder {
+            background: linear-gradient(180deg, rgba(239, 68, 68, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+            height: 80px;
+            clip-path: polygon(0 100%, 10% 80%, 20% 85%, 30% 50%, 40% 60%, 50% 20%, 60% 40%, 70% 30%, 80% 10%, 90% 15%, 100% 0%, 100% 100%);
+        }
+        .chart-placeholder.down {
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+            clip-path: polygon(0 0, 10% 20%, 20% 15%, 30% 50%, 40% 40%, 50% 80%, 60% 60%, 70% 70%, 80% 90%, 90% 85%, 100% 100%, 0% 100%);
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Header -->
+    <header class="bg-white border-b sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-8">
+                <h1 class="text-xl font-bold tracking-tight text-slate-900">STOCK REPORTS LAB</h1>
+                <nav class="hidden md:flex gap-6 text-sm font-medium text-slate-500">
+                    <a href="#" class="text-blue-600 border-b-2 border-blue-600 pb-5 mt-5">시장 개요</a>
+                    <a href="#" class="hover:text-slate-900 pb-5 mt-5">섹터 분석</a>
+                    <a href="#" class="hover:text-slate-900 pb-5 mt-5">관심 종목</a>
+                </nav>
+            </div>
+            <div class="relative w-64">
+                <input type="text" placeholder="종목명 또는 코드 검색" class="w-full bg-slate-100 border-none rounded-md py-2 px-4 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <h2 class="text-2xl font-bold mb-6">오늘의 시장</h2>
+
+        <!-- 지수 카드 섹션 -->
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+            <!-- 코스피 -->
+            <div class="bg-white p-6 rounded-xl border shadow-sm">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold">코스피 지수 (KOSPI)</h3>
+                        <p class="text-xs text-slate-400">실시간 데이터 업데이트</p>
+                    </div>
+                    <div class="flex gap-1">
+                        <button class="px-2 py-1 text-xs bg-slate-100 rounded">1D</button>
+                        <button class="px-2 py-1 text-xs hover:bg-slate-100 rounded">1W</button>
+                        <button class="px-2 py-1 text-xs hover:bg-slate-100 rounded">1M</button>
+                    </div>
+                </div>
+                <div class="flex items-baseline gap-2 mb-4">
+                    <span class="text-3xl font-bold text-red-600">2,654.89</span>
+                    <span class="text-red-600 font-medium">▲ 28.92 (+1.10%)</span>
+                </div>
+                <!-- 가상 차트 영역 -->
+                <div class="chart-placeholder w-full mb-2"></div>
+                <div class="flex justify-between text-[10px] text-slate-400">
+                    <span>09:00</span>
+                    <span>12:00</span>
+                    <span>15:30</span>
+                </div>
+            </div>
+
+            <!-- 코스닥 -->
+            <div class="bg-white p-6 rounded-xl border shadow-sm">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold">코스닥 지수 (KOSDAQ)</h3>
+                        <p class="text-xs text-slate-400">실시간 데이터 업데이트</p>
+                    </div>
+                    <div class="flex gap-1">
+                        <button class="px-2 py-1 text-xs bg-slate-100 rounded">1D</button>
+                        <button class="px-2 py-1 text-xs hover:bg-slate-100 rounded">1W</button>
+                        <button class="px-2 py-1 text-xs hover:bg-slate-100 rounded">1M</button>
+                    </div>
+                </div>
+                <div class="flex items-baseline gap-2 mb-4">
+                    <span class="text-3xl font-bold text-blue-600">872.15</span>
+                    <span class="text-blue-600 font-medium">▼ 3.95 (-0.45%)</span>
+                </div>
+                <!-- 가상 차트 영역 -->
+                <div class="chart-placeholder down w-full mb-2"></div>
+                <div class="flex justify-between text-[10px] text-slate-400">
+                    <span>09:00</span>
+                    <span>12:00</span>
+                    <span>15:30</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 일일 시장 분석 섹션 -->
+        <div class="bg-white rounded-xl border shadow-sm mb-8">
+            <div class="p-6 border-b">
+                <h3 class="font-bold text-lg uppercase">Daily Market Analysis</h3>
+            </div>
+            <div class="p-6">
+                <div class="mb-4">
+                    <h4 class="font-bold text-sm mb-2">핵심 하이라이트</h4>
+                    <ul class="list-disc list-inside text-sm text-slate-600 space-y-1">
+                        <li>외국인 및 기관 동반 순매수세 유입 (반도체 및 자동차 업종 중심)</li>
+                        <li>미국 금리 동결 기대감에 따른 기술주 중심의 강한 반등 장세</li>
+                        <li>환율 하락 안정화로 인한 수급 환경 개선</li>
+                    </ul>
+                </div>
+                <p class="text-sm text-slate-600 leading-relaxed">
+                    오늘의 국내 증시는 <b>반도체 섹터의 강세</b>와 외국인의 매수세에 힘입어 코스피 2,650선을 탈환했습니다. 특히 삼성전자와 SK하이닉스가 지수 상승을 견인했으며, 2차전지 섹터는 차익 실현 매물로 인해 다소 조정을 받는 모습을 보였습니다. 내일 예정된 미국의 소비자물가지수(CPI) 발표를 앞두고 관망세가 짙어질 가능성이 있으나, 전체적인 하방 경직성은 확보된 것으로 보입니다.
+                </p>
+            </div>
+        </div>
+
+        <!-- 데이터 테이블 섹션 -->
+        <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+            <div class="p-4 border-b flex justify-between items-center bg-slate-50">
+                <div class="flex gap-4 text-sm font-medium">
+                    <button class="text-blue-600 border-b-2 border-blue-600">전체 종목</button>
+                    <button class="text-slate-500 hover:text-slate-800">코스피</button>
+                    <button class="text-slate-500 hover:text-slate-800">코스닥</button>
+                </div>
+                <button class="text-xs border px-3 py-1.5 rounded bg-white flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.5a1 1 0 01-.293.707L12 14.5V19a1 1 0 01-.447.894l-4 2A1 1 0 016 21v-6.5L3.293 7.207A1 1 0 013 6.5V4z"></path></svg>
+                    필터링
+                </button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-slate-50 text-slate-500 border-b">
+                        <tr>
+                            <th class="px-6 py-3 font-medium">종목코드</th>
+                            <th class="px-6 py-3 font-medium">종목명</th>
+                            <th class="px-6 py-3 font-medium text-right">현재가</th>
+                            <th class="px-6 py-3 font-medium text-right">고가</th>
+                            <th class="px-6 py-3 font-medium text-right">저가</th>
+                            <th class="px-6 py-3 font-medium text-right">거래량</th>
+                            <th class="px-6 py-3 font-medium text-right">등락률</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y text-slate-700">
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-6 py-4 font-mono text-xs text-slate-400">005930</td>
+                            <td class="px-6 py-4 font-bold">삼성전자</td>
+                            <td class="px-6 py-4 text-right">76,200</td>
+                            <td class="px-6 py-4 text-right">76,500</td>
+                            <td class="px-6 py-4 text-right text-blue-500">74,800</td>
+                            <td class="px-6 py-4 text-right">12M</td>
+                            <td class="px-6 py-4 text-right text-red-600 font-medium">+1.60%</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition-colors bg-slate-50/30">
+                            <td class="px-6 py-4 font-mono text-xs text-slate-400">000660</td>
+                            <td class="px-6 py-4 font-bold">SK하이닉스</td>
+                            <td class="px-6 py-4 text-right text-red-600">182,300</td>
+                            <td class="px-6 py-4 text-right">183,000</td>
+                            <td class="px-6 py-4 text-right">179,000</td>
+                            <td class="px-6 py-4 text-right">3.5M</td>
+                            <td class="px-6 py-4 text-right text-red-600 font-medium">+2.45%</td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-6 py-4 font-mono text-xs text-slate-400">035420</td>
+                            <td class="px-6 py-4 font-bold">NAVER</td>
+                            <td class="px-6 py-4 text-right text-blue-600">188,500</td>
+                            <td class="px-6 py-4 text-right">191,000</td>
+                            <td class="px-6 py-4 text-right text-blue-600">187,000</td>
+                            <td class="px-6 py-4 text-right">0.8M</td>
+                            <td class="px-6 py-4 text-right text-blue-600 font-medium">-1.20%</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>삼성전자(005930) - 상세 분석 | STOCK REPORTS LAB</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f8fafc; }
+        /* 캔들스틱 차트 느낌을 주기 위한 임시 스타일 */
+        .candle-red { width: 8px; background-color: #ef4444; margin: 0 1px; }
+        .candle-blue { width: 8px; background-color: #3b82f6; margin: 0 1px; }
+        .wick { width: 2px; background-color: #333; margin: 0 4px; position: relative; }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Header (메인과 동일) -->
+    <header class="bg-white border-b sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-8">
+                <h1 class="text-xl font-bold tracking-tight text-slate-900 cursor-pointer">STOCK REPORTS LAB</h1>
+                <nav class="hidden md:flex gap-6 text-sm font-medium text-slate-500">
+                    <a href="#" class="hover:text-blue-600">시장 개요</a>
+                    <a href="#" class="hover:text-blue-600">섹터 분석</a>
+                    <a href="#" class="hover:text-blue-600">관심 종목</a>
+                </nav>
+            </div>
+            <div class="relative w-64">
+                <input type="text" placeholder="종목명 또는 코드 검색" class="w-full bg-slate-100 border-none rounded-md py-2 px-4 text-sm focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        <!-- 상단 내비게이션 및 종목 정보 -->
+        <div class="mb-6">
+            <a href="#" class="text-sm text-slate-500 hover:text-slate-800 flex items-center gap-1 mb-4">
+                ← 시장 개요로 돌아가기
+            </a>
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <div class="flex items-center gap-3">
+                        <h2 class="text-3xl font-bold">삼성전자 <span class="text-slate-400 font-normal text-2xl">(005930)</span></h2>
+                        <button class="px-3 py-1 text-sm border rounded-full hover:bg-yellow-50 hover:border-yellow-400 transition-colors">
+                            ⭐ 관심종목 추가
+                        </button>
+                    </div>
+                    <div class="flex items-baseline gap-3 mt-2">
+                        <span class="text-4xl font-extrabold text-red-600">76,200</span>
+                        <span class="text-lg font-bold text-slate-500 uppercase">KRW</span>
+                        <span class="text-xl font-bold text-red-600">▲ 1,200 (+1.60%)</span>
+                    </div>
+                </div>
+                <div class="flex gap-2 bg-white p-1 border rounded-lg shadow-sm text-sm">
+                    <button class="px-4 py-2 bg-slate-800 text-white rounded-md">1일</button>
+                    <button class="px-4 py-2 hover:bg-slate-100 rounded-md">1주</button>
+                    <button class="px-4 py-2 hover:bg-slate-100 rounded-md">1개월</button>
+                    <button class="px-4 py-2 hover:bg-slate-100 rounded-md">1년</button>
+                    <button class="px-4 py-2 border-l ml-1 text-blue-600 font-bold">지표 설정</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- 왼쪽: 차트 영역 (2컬럼 차지) -->
+            <div class="lg:col-span-2 space-y-6">
+                <!-- 메인 차트 카드 -->
+                <div class="bg-white rounded-xl border shadow-sm p-4 h-[500px] flex flex-col">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="text-sm font-bold text-slate-500 uppercase">CANDLESTICK CHART</span>
+                        <div class="flex gap-4 text-xs text-slate-400 font-mono">
+                            <span>시: 75,000</span>
+                            <span>고: 76,500</span>
+                            <span>저: 74,800</span>
+                            <span>종: 76,200</span>
+                        </div>
+                    </div>
+                    <!-- 차트 더미 그래픽 -->
+                    <div class="flex-1 bg-slate-50 border border-dashed rounded-lg flex items-end justify-around pb-10 px-4 relative overflow-hidden">
+                        <!-- 가상의 캔들스틱들 -->
+                        <div class="flex flex-col items-center"><div class="wick h-16"></div><div class="candle-red h-20 rounded-sm"></div></div>
+                        <div class="flex flex-col items-center"><div class="wick h-12"></div><div class="candle-blue h-16 rounded-sm"></div></div>
+                        <div class="flex flex-col items-center"><div class="wick h-20"></div><div class="candle-red h-24 rounded-sm"></div></div>
+                        <div class="flex flex-col items-center"><div class="wick h-14"></div><div class="candle-red h-32 rounded-sm"></div></div>
+                        <div class="flex flex-col items-center"><div class="wick h-10"></div><div class="candle-blue h-12 rounded-sm"></div></div>
+                        <div class="flex flex-col items-center"><div class="wick h-24"></div><div class="candle-red h-40 rounded-sm"></div></div>
+                        <div class="flex flex-col items-center"><div class="wick h-18"></div><div class="candle-red h-20 rounded-sm"></div></div>
+                        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-red-200 border-dashed"></div></div>
+                        <span class="absolute top-1/2 right-2 bg-red-600 text-white text-[10px] px-1 py-0.5 rounded">76,200</span>
+                    </div>
+                </div>
+
+                <!-- 거래량 및 보조지표 -->
+                <div class="bg-white rounded-xl border shadow-sm p-4">
+                    <span class="text-sm font-bold text-slate-500 uppercase mb-4 block">거래량 및 RSI</span>
+                    <div class="h-32 bg-slate-50 rounded-lg flex items-end gap-1 px-4 mb-4">
+                        <!-- 거래량 막대 -->
+                        <div class="flex-1 bg-red-200 h-1/2"></div>
+                        <div class="flex-1 bg-blue-200 h-1/3"></div>
+                        <div class="flex-1 bg-red-300 h-3/4"></div>
+                        <div class="flex-1 bg-red-400 h-full"></div>
+                        <div class="flex-1 bg-blue-200 h-1/4"></div>
+                    </div>
+                    <div class="h-16 bg-slate-50 rounded-lg relative overflow-hidden">
+                        <!-- RSI 라인 느낌 -->
+                        <svg class="absolute inset-0 w-full h-full"><path d="M0 40 Q 100 10, 200 50 T 400 30 T 600 60" fill="none" stroke="#8b5cf6" stroke-width="2"/></svg>
+                        <span class="absolute top-2 left-2 text-[10px] font-bold text-purple-600 uppercase font-mono">RSI (14): 64.41</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 오른쪽: 분석 영역 (1컬럼 차지) -->
+            <div class="space-y-6">
+                <!-- 개별 종목 분석 카드 -->
+                <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+                    <div class="bg-slate-900 text-white p-4">
+                        <h3 class="font-bold uppercase tracking-wide">Individual Stock Analysis</h3>
+                        <p class="text-[10px] text-slate-400">AI가 분석한 핵심 투자 포인트</p>
+                    </div>
+                    <div class="p-5 space-y-6">
+                        <section>
+                            <h4 class="text-sm font-bold text-slate-900 mb-3 border-b pb-1">주요 분석 및 시그널</h4>
+                            <ul class="space-y-4">
+                                <li class="flex gap-3">
+                                    <span class="text-blue-600 font-bold">1.</span>
+                                    <div>
+                                        <p class="text-sm font-bold">외국인 순매수 지속</p>
+                                        <p class="text-xs text-slate-500 mt-1 leading-relaxed">최근 5거래일 연속 외국인 기관의 동반 순매수가 유입되며 강력한 수급 지지선 형성.</p>
+                                    </div>
+                                </li>
+                                <li class="flex gap-3">
+                                    <span class="text-blue-600 font-bold">2.</span>
+                                    <div>
+                                        <p class="text-sm font-bold">반도체 섹터 반등세</p>
+                                        <p class="text-xs text-slate-500 mt-1 leading-relaxed">HBM3E 양산 기대감과 글로벌 테크 섹터의 온기가 국내 대장주로 확산되는 모습.</p>
+                                    </div>
+                                </li>
+                                <li class="flex gap-3">
+                                    <span class="text-blue-600 font-bold">3.</span>
+                                    <div>
+                                        <p class="text-sm font-bold">모멘텀 시그널 강화</p>
+                                        <p class="text-xs text-slate-500 mt-1 leading-relaxed">AI 산업 성장에 따른 데이터센터 수요 폭증으로 하반기 실적 가시성 매우 높음.</p>
+                                    </div>
+                                </li>
+                            </ul>
+                        </section>
+
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <p class="text-xs text-blue-800 leading-relaxed italic">
+                                "기술적으로 현재 가격대는 강력한 매물대 상단에 위치해 있으나, 거래량이 동반된 돌파 시도가 관측되므로 추가 상승 가능성이 높은 구간입니다."
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 기술적 지표 요약 카드 -->
+                <div class="bg-white rounded-xl border shadow-sm p-5">
+                    <h4 class="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider border-b pb-2">Technical Signal Summary</h4>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center py-2 border-b border-slate-50">
+                            <span class="text-xs text-slate-500">RSI (14)</span>
+                            <span class="text-xs font-bold text-slate-800">64.41 (중립/강함)</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2 border-b border-slate-50">
+                            <span class="text-xs text-slate-500">이동평균선</span>
+                            <span class="text-xs font-bold text-red-600">골든크로스 발생</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2 border-b border-slate-50">
+                            <span class="text-xs text-slate-500">MACD</span>
+                            <span class="text-xs font-bold text-slate-800">매수 신호 유지</span>
+                        </div>
+                        <div class="flex justify-between items-center py-2">
+                            <span class="text-xs text-slate-500">볼린저 밴드</span>
+                            <span class="text-xs font-bold text-slate-800">상단 돌파 시도 중</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+</body>
+</html>
