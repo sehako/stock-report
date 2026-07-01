@@ -9,7 +9,7 @@ Python 배치는 FinanceDataReader 기반 데이터 수집, 기술지표 계산,
 ## 2. 기본 기술 스택
 
 - 런타임: Python 3.12
-- 패키지 관리: uv
+- 패키지 관리: 표준 `venv`와 `pip`
 - 데이터 수집: FinanceDataReader
 - 데이터 처리: pandas, numpy
 - DB 접근: psycopg 3, SQLAlchemy Core
