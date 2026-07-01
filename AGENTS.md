@@ -52,6 +52,7 @@
 - React 컴포넌트, hook, route, state 구현: `react-specialist`
 - TypeScript type, API type, type guard 구현: `typescript-pro`
 - SQL, query, schema, migration, index 작업: `sql-pro`
+- Python worker, pandas, SQLAlchemy Core 작업: `python-pro`
 
 풀스택 작업은 백엔드 작업 단위와 프론트엔드 작업 단위를 분리해 각각 적절한 에이전트를 사용한다.
 
