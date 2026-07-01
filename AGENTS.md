@@ -12,7 +12,7 @@
 - 사용자가 승인한 계획 파일이 있는 경우에만 구현을 수행한다.
 - 구현 중 계획 밖 변경이 필요하면 임의로 수정하지 않고 사용자에게 보고한다.
 - 모든 문서 산출물은 한글로 작성한다.
-- 커밋 메시지는 type(optional scope): description 형식을 따르고, description은 한글로 작성한다. body나 footer는 작성하지 않는다.
+- 커밋 메시지는 type(scope): description 형식을 따르고, description은 한글로 작성한다. body나 footer는 작성하지 않는다.
 
 # 조사 워크플로우
 
