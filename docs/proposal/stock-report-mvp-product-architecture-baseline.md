@@ -301,7 +301,7 @@ Python Batch Worker ────────── PostgreSQL
 | `stock_analysis` | 리비전별 분석 대상, 상태, 종목명·시장·업종·선정 순위·선정 기준 거래량 스냅샷 |
 | `signal_event` | 종목별 골든크로스 발생 사건 |
 | `industry_analysis` | 리비전별 업종 규모, 면적 기준, 평균 등락률, 신호 수·비율·분모 수·제외 수 |
-| `market_ai_summary` | 리비전별 AI 시장 요약 상태, 내용, 입력 해시 |
+| `market_ai_summary` | 거래일별 AI 시장 요약 상태, 내용, 입력 해시, 입력 리비전 참조 |
 
 ### 11.1 주요 고유 조건
 
@@ -311,7 +311,7 @@ Python Batch Worker ────────── PostgreSQL
 - `signal_event`: `(stock_id, signal_type, cross_date, calculation_version)`
 - `market_index_price`: `(index_code, trade_date)`
 - `industry_analysis`: `(report_revision_id, industry_name)`
-- `market_ai_summary`: `(report_revision_id)`
+- `market_ai_summary`: `(report_date)`
 
 ### 11.2 스냅샷 원칙
 
@@ -322,7 +322,7 @@ Python Batch Worker ────────── PostgreSQL
 - 리비전은 참조 계산 버전을 하나만 가진다.
 - `daily_indicator`와 `signal_event`는 리비전이 참조하는 계산 버전의 값만 조회한다.
 - 업종과 분석 결과는 리비전에 연결한다.
-- AI 요약은 리비전을 참조하지만 금융 데이터 리비전의 일부로 보지 않는다.
+- AI 요약은 거래일별 1건만 유지하며, 입력으로 사용한 리비전을 참조하지만 금융 데이터 리비전의 일부로 보지 않는다.
 
 ## 12. 리비전과 과거 조회
 
