@@ -12,6 +12,7 @@
 
 ## 관련 문서
 
+- 원격 발행 이슈: [GitHub Issue #3 - [Feature] [worker] Python 배치 실행 기반 구성](https://github.com/sehako/stock-report/issues/3)
 - `docs/proposal/stock-report-mvp-issue-breakdown.md`
 - `docs/proposal/python_batch_retry_consistency_design.md`
 - `docs/adr/0002-share-database-with-single-schema-owner.md`
@@ -255,6 +256,7 @@
 - fake `TargetStockProvider`가 제공한 종목 목록만 처리 대상이 되는지 검증한다.
 - 종목 처리 callable이 입력 순서대로 호출되는지 검증한다.
 - timeout wrapper가 30초 초과 callable을 `StockFetchTimeout`으로 분류하는지 검증한다.
+- 실제 종목 실행 오케스트레이터가 timeout wrapper를 통과해 `StockFetchTimeout`을 받는 통합 경로를 검증한다.
 - 종목별 timeout 발생 시 `RETRYABLE`, `attempt_count` 증가, `next_retry_at = now + 10분`이 기록되는지 검증한다.
 - 종목 처리 시작 또는 재시도 예약 시 `daily_stock_processing_status`가 `DATA_PREPARING`으로 갱신되는지 검증한다.
 - 재시도 소진 또는 복구 불가 실패 시 `daily_stock_processing_status`가 `DATA_UPDATE_FAILED` 또는 `ANALYSIS_FAILED`로 갱신되는지 검증한다.
@@ -264,6 +266,10 @@
 - 초기 1회 실패 뒤 최대 3회 재시도까지만 수행하고 총 4회 이후 `FAILED_PERMANENT`가 되는지 검증한다.
 - 프로세스 재시작 시 `PENDING`과 재시도 가능 시간이 지난 `RETRYABLE`만 다시 처리 대상이 되는지 검증한다.
 - 종목 단위 실패가 이전 성공 종목의 커밋을 되돌리지 않는지 검증한다.
+- 앞 종목이 `SUCCEEDED`로 커밋된 뒤 뒤 종목이 `FAILED_PERMANENT` 또는 `RETRYABLE`이 되어도 앞 종목의 `batch_stock_run.status = 'SUCCEEDED'`가 유지되는지 검증한다.
+- PostgreSQL에서 실제 `pg_try_advisory_lock` 기반 중복 실행 차단을 검증한다.
+- PostgreSQL에서 재시도 대기 중 같은 connection이 advisory lock을 유지하는지 검증한다.
+- Spring Flyway가 생성한 실제 스키마에서 `batch_job_run`, `batch_stock_run`, `daily_stock_processing_status` insert/update가 복합 FK와 check constraint를 위반하지 않는지 검증한다.
 - 정상 거래일 성공 경로가 주입된 최초 게시 경계를 호출하고, 게시 경계 성공 후 `PUBLISHED_INITIAL`로 종료되는지 검증한다.
 
 ## 위험 요소
@@ -279,8 +285,11 @@
 - 연속 timeout 카운터는 영속 저장하지 않으므로 프로세스 재시작 후에는 새 실행 루프 기준으로 다시 계산된다.
 - 같은 프로세스가 재시도 대기 동안 advisory lock을 유지하므로 최장 실행 시간이 30분 이상이 될 수 있다.
 - `ThreadPoolExecutor` 기반 timeout은 내부 블로킹 호출을 강제로 중단하지 못할 수 있어, 실제 FinanceDataReader 연동 후 thread 누수나 장기 블로킹 여부를 별도 검증해야 한다.
+- `ThreadPoolExecutor` 기반 timeout은 timeout 이후 worker 상태 전이 기준으로만 실패를 확정한다. 이미 실행 중인 내부 thread가 계속 실행될 수 있으므로, "종목별 순차 처리"는 상태 전이와 오케스트레이터 호출 순서 기준으로 정의한다. 실제 외부 공급자 호출 자체가 절대 겹치면 안 되는 요구가 생기면 thread 방식 대신 process 격리나 공급자별 native timeout으로 변경해야 한다.
+- timeout wrapper 단위 테스트만으로는 배치 오케스트레이터가 실제 timeout wrapper 경로를 사용하는지 보장하지 못한다. 연속 timeout, 재시도 예약, 재시도 소진 테스트 중 최소 하나는 fake exception 직접 발생이 아니라 timeout wrapper 통합 경로를 통해 검증해야 한다.
 - SQLAlchemy Core 상수 문자열이 Flyway check constraint와 다르면 런타임 DB 오류가 발생한다.
 - 복합 FK가 있는 테이블은 `id`와 `report_date`를 항상 일관되게 기록해야 한다.
+- SQLite 기반 테스트는 PostgreSQL advisory lock, Flyway check constraint, 복합 FK 동작을 완전히 재현하지 못한다. 원격 이슈 완료 판정 전 PostgreSQL/Flyway 기반 통합 검증을 별도로 수행해야 한다.
 
 ## 구현 완료 기준
 
@@ -300,3 +309,31 @@
 - `daily_stock_processing_status`는 이번 단계에서 `DATA_PREPARING`, `DATA_UPDATE_FAILED`, `ANALYSIS_FAILED` 범위로 갱신된다.
 - 정상 거래일 성공 경로는 `PUBLISHED_INITIAL`로 종료된다.
 - Python worker는 Flyway가 생성한 기존 테이블만 사용한다.
+- worker README에 실행 명령, 필요한 환경 변수, 19:00 Asia/Seoul 스케줄링 책임, 재시도와 중복 실행 정책이 기록된다.
+- timeout, 연속 timeout 중단, 재시도 예약, 재시도 소진 정책은 테스트로 검증된다.
+- 종목 단위 실패가 이전 성공 종목의 커밋을 되돌리지 않는지 테스트로 검증된다.
+- PostgreSQL advisory lock 기반 중복 실행 차단은 실제 PostgreSQL 경계에서 검증된다.
+- Flyway가 생성한 실제 스키마 위에서 worker repository의 상태 전이가 check constraint와 복합 FK를 만족하는지 검증된다.
+
+## 현재 구현 검토 후 보완 필요 사항
+
+2026-07-08 현재 구현 검토에서 원격 이슈 `#3`의 완료 기준 대비 다음 보완이 필요하다고 판단했다.
+
+1. timeout 순차성 해석을 명확히 한다.
+   - 현재 계획의 기본 timeout 방식은 `ThreadPoolExecutor(max_workers=1)`와 `future.result(timeout=30)`이다.
+   - 이 방식은 timeout 이후 실행 중인 thread를 강제 종료하지 못할 수 있다.
+   - 따라서 이번 단계의 순차 처리 완료 기준은 "배치 오케스트레이터가 한 종목의 상태 전이를 확정한 뒤 다음 종목 상태 전이를 시작한다"로 해석한다.
+   - 실제 외부 공급자 호출이 물리적으로 겹치면 안 되는 요구는 이번 단계의 `ThreadPoolExecutor` 선택과 충돌하므로, 별도 후속 결정 없이는 완료 기준으로 삼지 않는다.
+
+2. timeout 통합 테스트를 보강한다.
+   - timeout wrapper 단위 테스트와 fake `StockFetchTimeout` 직접 발생 테스트만으로는 충분하지 않다.
+   - 종목 실행 오케스트레이터가 실제 `TimeoutRunner`를 통해 느린 callable을 `StockFetchTimeout`으로 분류하고 `RETRYABLE` 또는 `FAILED_PERMANENT` 상태 전이를 수행하는 경로를 검증한다.
+
+3. 성공 커밋 보존 테스트를 추가한다.
+   - 앞 종목 성공 후 뒤 종목이 재시도 가능 실패 또는 최종 실패가 되는 시나리오를 추가한다.
+   - 검증 대상은 앞 종목의 `batch_stock_run.status = 'SUCCEEDED'`와 뒤 종목의 실패 상태가 같은 배치 안에서 함께 유지되는지다.
+
+4. PostgreSQL/Flyway 통합 검증을 추가한다.
+   - advisory lock 중복 실행 차단은 `NoopBatchLock`이 아니라 실제 `pg_try_advisory_lock`으로 검증한다.
+   - repository는 SQLite `metadata.create_all()`이 아니라 Spring Flyway가 만든 실제 테이블에서 검증한다.
+   - 특히 `batch_stock_run(batch_job_run_id, report_date)`와 `daily_stock_processing_status(last_batch_job_run_id, report_date)`의 복합 FK, 각 status check constraint를 확인한다.
