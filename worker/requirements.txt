@@ -1,2 +1,3 @@
-# Runtime dependencies for the worker package.
-# The current scaffold has no external runtime dependencies yet.
+SQLAlchemy>=2.0
+psycopg[binary]>=3.0
+pydantic-settings>=2.0
