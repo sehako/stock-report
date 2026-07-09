@@ -1,0 +1,2 @@
+CRON_TZ=Asia/Seoul
+0 19 * * 1-5 stock-report-worker
