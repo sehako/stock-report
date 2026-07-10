@@ -18,7 +18,7 @@
 - `docs/adr/0002-share-database-with-single-schema-owner.md`
 - `docs/adr/0005-python-batch-retry-consistency.md`
 - `docs/implementation/server/server-data-model-flyway-plan.md`
-- `docs/implementation/worker/worker-scaffold-plan.md`
+- `docs/implementation/worker/worker-02-scaffold-plan.md`
 
 ## 현재 구조
 
