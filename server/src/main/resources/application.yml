@@ -9,3 +9,6 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+stock-report:
+  service-start-date: 2026-07-01

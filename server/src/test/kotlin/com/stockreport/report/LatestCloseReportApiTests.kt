@@ -43,6 +43,8 @@ class LatestCloseReportApiTests {
     companion object {
         private const val TODAY = "2026-07-09"
         private const val PREVIOUS_REPORT_DATE = "2026-07-08"
+        private const val SERVICE_START_DATE = "2026-07-01"
+        private const val BEFORE_SERVICE_START_DATE = "2026-06-30"
 
         @Container
         @ServiceConnection
@@ -271,6 +273,182 @@ class LatestCloseReportApiTests {
             .andExpect(jsonPath("$.report.revisionNo").value(2))
             .andExpect(jsonPath("$.report.aiSummary.status").value("PENDING"))
             .andExpect(jsonPath("$.report.aiSummary.summaryText").value(nullValue()))
+    }
+
+    @Test
+    fun `과거 조회는 서비스 시작일 이전 날짜에 BEFORE_SERVICE_START와 null report를 반환한다`() {
+        mockMvc.perform(get("/api/reports/close").param("tradeDate", BEFORE_SERVICE_START_DATE))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("BEFORE_SERVICE_START"))
+            .andExpect(jsonPath("$.tradeDate").value(BEFORE_SERVICE_START_DATE))
+            .andExpect(jsonPath("$.serviceStartDate").value(SERVICE_START_DATE))
+            .andExpect(jsonPath("$.report").value(nullValue()))
+    }
+
+    @Test
+    fun `과거 조회는 서비스 시작일 이전 날짜에 활성 리비전이 있어도 BEFORE_SERVICE_START를 반환한다`() {
+        insertReportRevision(reportDate = BEFORE_SERVICE_START_DATE)
+
+        mockMvc.perform(get("/api/reports/close").param("tradeDate", BEFORE_SERVICE_START_DATE))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("BEFORE_SERVICE_START"))
+            .andExpect(jsonPath("$.report").value(nullValue()))
+    }
+
+    @Test
+    fun `과거 조회는 요청일 활성 리비전이 있으면 PUBLISHED와 요청일 리포트를 반환한다`() {
+        insertReportRevision(reportDate = PREVIOUS_REPORT_DATE, calculationVersion = "close-v0")
+        val revisionId = insertReportRevision(
+            reportDate = TODAY,
+            revisionNo = 2,
+            revisionType = "FINAL",
+            calculationVersion = "stoch-macd-v1",
+        )
+        insertMarketIndex("KOSPI", TODAY, "2700.5000")
+        insertMarketIndex("KOSDAQ", TODAY, "920.1250")
+        val stockId = insertStock("005930", "Samsung Electronics")
+        val otherStockId = insertStock("000660", "SK Hynix")
+        val signalEventId = insertSignalEvent(stockId, TODAY, "stoch-macd-v1")
+        val mismatchedVersionSignalEventId = insertSignalEvent(otherStockId, TODAY, "close-v0")
+        insertStockAnalysis(revisionId, stockId, signalEventId, "SIGNAL_FOUND", 1)
+        insertStockAnalysis(revisionId, otherStockId, mismatchedVersionSignalEventId, "SIGNAL_FOUND", 2)
+        insertAiSummary(
+            reportDate = TODAY,
+            revisionId = revisionId,
+            status = "COMPLETED",
+            summaryText = "과거 시장 요약 본문",
+        )
+
+        mockMvc.perform(get("/api/reports/close").param("tradeDate", TODAY))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("PUBLISHED"))
+            .andExpect(jsonPath("$.tradeDate").value(TODAY))
+            .andExpect(jsonPath("$.serviceStartDate").value(SERVICE_START_DATE))
+            .andExpect(jsonPath("$.report.reportDate").value(TODAY))
+            .andExpect(jsonPath("$.report.revisionNo").value(2))
+            .andExpect(jsonPath("$.report.revisionType").value("FINAL"))
+            .andExpect(jsonPath("$.report.calculationVersion").value("stoch-macd-v1"))
+            .andExpect(jsonPath("$.report.marketIndices.length()").value(2))
+            .andExpect(jsonPath("$.report.marketIndices[0].indexCode").value("KOSPI"))
+            .andExpect(jsonPath("$.report.marketIndices[0].tradeDate").value(TODAY))
+            .andExpect(jsonPath("$.report.marketIndices[1].indexCode").value("KOSDAQ"))
+            .andExpect(jsonPath("$.report.scannerStats.targetStockCount").value(200))
+            .andExpect(jsonPath("$.report.scannerStats.completedStockCount").value(190))
+            .andExpect(jsonPath("$.report.scannerStats.failedStockCount").value(3))
+            .andExpect(jsonPath("$.report.scannerStats.insufficientStockCount").value(5))
+            .andExpect(jsonPath("$.report.scannerStats.noTradingStockCount").value(2))
+            .andExpect(jsonPath("$.report.scannerStats.goldenCrossStockCount").value(1))
+            .andExpect(jsonPath("$.report.aiSummary.status").value("COMPLETED"))
+            .andExpect(jsonPath("$.report.aiSummary.summaryText").value("과거 시장 요약 본문"))
+    }
+
+    @Test
+    fun `과거 조회는 요청일에 여러 리비전이 있으면 활성 리비전만 반환한다`() {
+        insertReportRevision(
+            reportDate = TODAY,
+            revisionNo = 1,
+            isActive = false,
+            calculationVersion = "close-v0",
+        )
+        insertReportRevision(
+            reportDate = TODAY,
+            revisionNo = 2,
+            isActive = true,
+            calculationVersion = "close-v1",
+        )
+
+        mockMvc.perform(get("/api/reports/close").param("tradeDate", TODAY))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("PUBLISHED"))
+            .andExpect(jsonPath("$.report.revisionNo").value(2))
+            .andExpect(jsonPath("$.report.calculationVersion").value("close-v1"))
+    }
+
+    @Test
+    fun `과거 조회는 요청일 활성 리비전이 없으면 직전 활성 리포트를 fallback으로 반환하지 않는다`() {
+        insertReportRevision(reportDate = PREVIOUS_REPORT_DATE)
+
+        mockMvc.perform(get("/api/reports/close").param("tradeDate", TODAY))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("NOT_PUBLISHED"))
+            .andExpect(jsonPath("$.report").value(nullValue()))
+    }
+
+    @Test
+    fun `과거 조회는 AI 요약이 없으면 PENDING과 null summaryText를 반환한다`() {
+        insertReportRevision(reportDate = TODAY)
+
+        mockMvc.perform(get("/api/reports/close").param("tradeDate", TODAY))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.report.aiSummary.status").value("PENDING"))
+            .andExpect(jsonPath("$.report.aiSummary.summaryText").value(nullValue()))
+    }
+
+    @Test
+    fun `과거 조회는 AI 요약이 같은 거래일의 비활성 리비전을 참조하면 PENDING을 반환한다`() {
+        val inactiveRevisionId = insertReportRevision(
+            reportDate = TODAY,
+            revisionNo = 1,
+            isActive = false,
+        )
+        insertReportRevision(
+            reportDate = TODAY,
+            revisionNo = 2,
+            isActive = true,
+        )
+        insertAiSummary(
+            reportDate = TODAY,
+            revisionId = inactiveRevisionId,
+            status = "COMPLETED",
+            summaryText = "이전 리비전 요약",
+        )
+
+        mockMvc.perform(get("/api/reports/close").param("tradeDate", TODAY))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.report.revisionNo").value(2))
+            .andExpect(jsonPath("$.report.aiSummary.status").value("PENDING"))
+            .andExpect(jsonPath("$.report.aiSummary.summaryText").value(nullValue()))
+    }
+
+    @Test
+    fun `과거 조회는 요청일 활성 리비전이 없고 SKIPPED_MARKET_CLOSED이면 MARKET_CLOSED를 반환한다`() {
+        insertBatchJobRun(reportDate = TODAY, status = "SKIPPED_MARKET_CLOSED")
+
+        mockMvc.perform(get("/api/reports/close").param("tradeDate", TODAY))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("MARKET_CLOSED"))
+            .andExpect(jsonPath("$.report").value(nullValue()))
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["RUNNING", "RETRYING", "DELAYED", "FAILED"])
+    fun `과거 조회는 내부 배치 진행 상태를 NOT_PUBLISHED로 반환한다`(batchStatus: String) {
+        insertBatchJobRun(reportDate = TODAY, status = batchStatus)
+
+        mockMvc.perform(get("/api/reports/close").param("tradeDate", TODAY))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("NOT_PUBLISHED"))
+            .andExpect(jsonPath("$.report").value(nullValue()))
+    }
+
+    @Test
+    fun `과거 조회는 요청일 활성 리비전과 배치 행이 없으면 NOT_PUBLISHED를 반환한다`() {
+        mockMvc.perform(get("/api/reports/close").param("tradeDate", TODAY))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.status").value("NOT_PUBLISHED"))
+            .andExpect(jsonPath("$.report").value(nullValue()))
+    }
+
+    @Test
+    fun `과거 조회는 tradeDate가 누락되면 HTTP 400을 반환한다`() {
+        mockMvc.perform(get("/api/reports/close"))
+            .andExpect(status().isBadRequest)
+    }
+
+    @Test
+    fun `과거 조회는 tradeDate 날짜 형식이 잘못되면 HTTP 400을 반환한다`() {
+        mockMvc.perform(get("/api/reports/close").param("tradeDate", "2026/07/09"))
+            .andExpect(status().isBadRequest)
     }
 
     private fun insertReportRevision(

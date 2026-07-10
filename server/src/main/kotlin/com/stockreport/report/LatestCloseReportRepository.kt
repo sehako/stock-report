@@ -114,19 +114,18 @@ class LatestCloseReportRepository(
             Int::class.java,
         ) ?: 0
 
-    fun findAiSummary(reportDate: LocalDate, reportRevisionId: Long): AiSummaryRow? =
+    fun findAiSummaryByReportDate(reportDate: LocalDate): AiSummaryRow? =
         jdbcTemplate.query(
             """
-            select status, summary_text
+            select report_revision_id, status, summary_text
             from market_ai_summary
             where report_date = :reportDate
-              and report_revision_id = :reportRevisionId
             """.trimIndent(),
             MapSqlParameterSource()
-                .addValue("reportDate", reportDate)
-                .addValue("reportRevisionId", reportRevisionId),
+                .addValue("reportDate", reportDate),
         ) { rs, _ ->
             AiSummaryRow(
+                reportRevisionId = rs.getLong("report_revision_id"),
                 status = rs.getString("status"),
                 summaryText = rs.getString("summary_text"),
             )
@@ -184,6 +183,7 @@ data class MarketIndexRow(
 )
 
 data class AiSummaryRow(
+    val reportRevisionId: Long,
     val status: String,
     val summaryText: String?,
 )
