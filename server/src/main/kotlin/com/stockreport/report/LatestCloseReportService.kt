@@ -2,12 +2,15 @@ package com.stockreport.report
 
 import java.time.Clock
 import java.time.LocalDate
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 
 @Service
 class LatestCloseReportService(
     private val repository: LatestCloseReportRepository,
     private val clock: Clock,
+    @Value("\${stock-report.service-start-date}")
+    private val serviceStartDate: LocalDate,
 ) {
 
     fun getLatestCloseReport(): LatestCloseReportResponse {
@@ -37,6 +40,34 @@ class LatestCloseReportService(
         )
     }
 
+    fun getHistoricalCloseReport(tradeDate: LocalDate): HistoricalCloseReportResponse {
+        if (tradeDate < serviceStartDate) {
+            return HistoricalCloseReportResponse(
+                status = HistoricalCloseReportStatus.BEFORE_SERVICE_START,
+                tradeDate = tradeDate,
+                serviceStartDate = serviceStartDate,
+                report = null,
+            )
+        }
+
+        val activeRevision = repository.findActiveRevisionByReportDate(tradeDate)
+        if (activeRevision != null) {
+            return HistoricalCloseReportResponse(
+                status = HistoricalCloseReportStatus.PUBLISHED,
+                tradeDate = tradeDate,
+                serviceStartDate = serviceStartDate,
+                report = activeRevision.toDto(),
+            )
+        }
+
+        return HistoricalCloseReportResponse(
+            status = historicalDisplayStatus(repository.findBatchStatusByReportDate(tradeDate)),
+            tradeDate = tradeDate,
+            serviceStartDate = serviceStartDate,
+            report = null,
+        )
+    }
+
     private fun displayStatus(batchStatus: String?): LatestCloseReportStatus =
         when (batchStatus) {
             "DELAYED", "FAILED" -> LatestCloseReportStatus.DELAYED
@@ -45,9 +76,16 @@ class LatestCloseReportService(
             else -> LatestCloseReportStatus.NOT_PUBLISHED
         }
 
+    private fun historicalDisplayStatus(batchStatus: String?): HistoricalCloseReportStatus =
+        when (batchStatus) {
+            "SKIPPED_MARKET_CLOSED" -> HistoricalCloseReportStatus.MARKET_CLOSED
+            else -> HistoricalCloseReportStatus.NOT_PUBLISHED
+        }
+
     private fun ReportRevisionRow.toDto(): LatestCloseReportDto {
         val goldenCrossStockCount = repository.countGoldenCrossStocks(id, calculationVersion)
-        val aiSummary = repository.findAiSummary(reportDate, id)
+        val aiSummary = repository.findAiSummaryByReportDate(reportDate)
+            ?.takeIf { it.reportRevisionId == id }
 
         return LatestCloseReportDto(
             reportDate = reportDate,

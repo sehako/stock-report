@@ -6,6 +6,7 @@ import javax.sql.DataSource
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.test.context.ActiveProfiles
 import org.testcontainers.containers.PostgreSQLContainer
@@ -36,6 +37,15 @@ class StockReportApplicationTests {
         dataSource.connection.use { connection ->
             assertEquals("PostgreSQL", connection.metaData.databaseProductName)
         }
+    }
+
+    @Test
+    fun contextFailsWithoutServiceStartDate() {
+        ApplicationContextRunner()
+            .withUserConfiguration(ServiceStartDateRequiredConfig::class.java)
+            .run { context ->
+                assertTrue(context.startupFailure != null)
+            }
     }
 
     @Test
@@ -733,3 +743,9 @@ class StockReportApplicationTests {
             }
         }
 }
+
+@org.springframework.context.annotation.Configuration(proxyBeanMethods = false)
+private class ServiceStartDateRequiredConfig(
+    @org.springframework.beans.factory.annotation.Value("\${stock-report.service-start-date}")
+    private val serviceStartDate: java.time.LocalDate,
+)

@@ -10,6 +10,13 @@ data class LatestCloseReportResponse(
     val report: LatestCloseReportDto?,
 )
 
+data class HistoricalCloseReportResponse(
+    val status: HistoricalCloseReportStatus,
+    val tradeDate: LocalDate,
+    val serviceStartDate: LocalDate,
+    val report: LatestCloseReportDto?,
+)
+
 data class LatestCloseReportDto(
     val reportDate: LocalDate,
     val revisionNo: Int,
@@ -60,4 +67,11 @@ enum class LatestCloseReportStatus {
     MARKET_CLOSED,
     NOT_PUBLISHED,
     EMPTY,
+}
+
+enum class HistoricalCloseReportStatus {
+    PUBLISHED,
+    MARKET_CLOSED,
+    NOT_PUBLISHED,
+    BEFORE_SERVICE_START,
 }

@@ -4,3 +4,6 @@ spring:
       ddl-auto: none
   flyway:
     enabled: true
+
+stock-report:
+  service-start-date: 2026-07-01
