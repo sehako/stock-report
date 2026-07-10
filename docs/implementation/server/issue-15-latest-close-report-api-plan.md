@@ -6,7 +6,7 @@
 
 원격 이슈: https://github.com/sehako/stock-report/issues/4
 
-기준 조사 문서: `docs/research/server/latest-close-report-api-research.md`
+기준 조사 문서: `docs/research/server/issue-15-latest-close-report-api-research.md`
 
 ## 1. 목적
 
@@ -17,9 +17,9 @@
 ## 2. 기준 문서
 
 - `docs/proposal/stock-report-mvp-issue-breakdown.md`
-- `docs/research/server/latest-close-report-api-research.md`
+- `docs/research/server/issue-15-latest-close-report-api-research.md`
 - `docs/implementation/server/backend-scaffold-plan.md`
-- `docs/implementation/server/server-data-model-flyway-plan.md`
+- `docs/implementation/server/issue-1-server-data-model-flyway-plan.md`
 - `docs/adr/0002-share-database-with-single-schema-owner.md`
 - `docs/adr/0003-version-published-report-results.md`
 - `CONTEXT.md`

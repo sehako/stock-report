@@ -6,7 +6,7 @@
 
 원격 이슈: https://github.com/sehako/stock-report/issues/10
 
-기준 조사 문서: `docs/research/server/historical-close-report-api-research.md`
+기준 조사 문서: `docs/research/server/issue-16-historical-close-report-api-research.md`
 
 관련 ADR: `docs/adr/0006-use-trade-date-and-active-revision-for-historical-close-report.md`
 
@@ -22,8 +22,8 @@
 
 - `docs/proposal/stock-report-mvp-product-architecture-baseline.md`
 - `docs/proposal/stock-report-mvp-issue-breakdown.md`
-- `docs/research/server/historical-close-report-api-research.md`
-- `docs/implementation/server/latest-close-report-api-plan.md`
+- `docs/research/server/issue-16-historical-close-report-api-research.md`
+- `docs/implementation/server/issue-15-latest-close-report-api-plan.md`
 - `docs/adr/0006-use-trade-date-and-active-revision-for-historical-close-report.md`
 - `docs/report-generation-considerations.md`
 - `CONTEXT.md`
