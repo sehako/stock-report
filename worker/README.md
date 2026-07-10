@@ -61,13 +61,15 @@ python -m stock_report_worker --report-date 2026-07-09
 
 5개 종목이 연속으로 timeout되면 현재 회차를 중단하고 아직 호출하지 않은 종목을 `attempt_count` 증가 없이 재시도 대상으로 예약한다. 종목별 업무 상태는 이번 단계에서 `DATA_PREPARING`, `DATA_UPDATE_FAILED`, `ANALYSIS_FAILED`만 갱신한다.
 
-## KRX 종목 목록 수집 경계
+## KRX 분석 종목 선정 경계
 
 `KrxStockListingProvider`는 FinanceDataReader `StockListing("KRX")`와 `StockListing("KRX-DESC")`를 조회해 현재 종목 메타데이터를 `stock.stock_code` 기준으로 upsert한다. 반환값에는 후속 분석 대상 선정 로직이 사용할 `stock.id`, KRX listing 종가 원천값, KRX listing 거래량 원천값이 포함된다.
 
-KRX listing 종가와 거래량은 이 경계에서 영속화하지 않는다. 운영 배치 흐름에서 종가 1,000원 이상, 거래량 상위 200개 분석 종목을 선정하고 `batch_stock_run`으로 연결하는 작업은 후속 이슈에서 수행한다.
+운영 배치는 KRX listing 수집 직후 종가 1,000원 이상인 종목만 남기고, 거래량 내림차순과 종목코드 오름차순으로 정렬해 최대 200개 분석 종목을 선정한다. 선정된 종목만 `batch_stock_run` 대상으로 등록하며, 선정 직후 `daily_stock_processing_status.analysis_status`를 `DATA_PREPARING`으로 초기화한다.
 
-FinanceDataReader 조회 실패, 원천 필수 컬럼 누락, 필수값 정규화 실패, stock upsert 실패는 `KrxStockListingUnavailable` 예외로 분류한다. 실제 `batch_job_run.status = 'DELAYED'` 전이 연결은 후속 분석 대상 선정 이슈에서 수행한다.
+KRX listing 종가와 거래량은 이 단계에서 별도 테이블에 영속화하지 않는다. 선정 순위와 선정 기준 거래량은 배치 실행 중 `TargetStock` DTO에 보존하고, 공개 리포트 리비전의 `stock_analysis` 스냅샷 저장은 리포트 게시 정책 단계에서 수행한다.
+
+FinanceDataReader 조회 실패, 원천 필수 컬럼 누락, 필수값 정규화 실패, stock upsert 실패는 `KrxStockListingUnavailable` 예외로 분류한다. 운영 배치는 이 예외를 `batch_job_run.status = 'DELAYED'`로 기록하고 exit code 1로 종료한다. 이때 `batch_stock_run`, `daily_stock_processing_status`, `report_revision`, `stock_analysis`는 생성하지 않는다.
 
 ## 테스트
 
