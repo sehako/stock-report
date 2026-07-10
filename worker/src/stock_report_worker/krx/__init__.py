@@ -1,0 +1,2 @@
+"""KRX listing collection boundary."""
+

@@ -31,6 +31,9 @@ stock = Table(
     Column("stock_name", String(255), nullable=False),
     Column("market", String(16), nullable=False),
     Column("industry_name", String(255)),
+    Column("created_at", DateTime(timezone=True)),
+    Column("updated_at", DateTime(timezone=True)),
+    UniqueConstraint("stock_code", name="uq_stock_stock_code"),
 )
 
 batch_job_run = Table(

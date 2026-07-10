@@ -61,6 +61,14 @@ python -m stock_report_worker --report-date 2026-07-09
 
 5개 종목이 연속으로 timeout되면 현재 회차를 중단하고 아직 호출하지 않은 종목을 `attempt_count` 증가 없이 재시도 대상으로 예약한다. 종목별 업무 상태는 이번 단계에서 `DATA_PREPARING`, `DATA_UPDATE_FAILED`, `ANALYSIS_FAILED`만 갱신한다.
 
+## KRX 종목 목록 수집 경계
+
+`KrxStockListingProvider`는 FinanceDataReader `StockListing("KRX")`와 `StockListing("KRX-DESC")`를 조회해 현재 종목 메타데이터를 `stock.stock_code` 기준으로 upsert한다. 반환값에는 후속 분석 대상 선정 로직이 사용할 `stock.id`, KRX listing 종가 원천값, KRX listing 거래량 원천값이 포함된다.
+
+KRX listing 종가와 거래량은 이 경계에서 영속화하지 않는다. 운영 배치 흐름에서 종가 1,000원 이상, 거래량 상위 200개 분석 종목을 선정하고 `batch_stock_run`으로 연결하는 작업은 후속 이슈에서 수행한다.
+
+FinanceDataReader 조회 실패, 원천 필수 컬럼 누락, 필수값 정규화 실패, stock upsert 실패는 `KrxStockListingUnavailable` 예외로 분류한다. 실제 `batch_job_run.status = 'DELAYED'` 전이 연결은 후속 분석 대상 선정 이슈에서 수행한다.
+
 ## 테스트
 
 ```bash
@@ -81,4 +89,4 @@ WORKER_POSTGRES_TEST_URL='postgresql+psycopg://user:password@localhost:5432/test
 
 - Python 워커는 Spring Flyway가 생성한 승인된 테이블만 사용한다.
 - Python 워커는 운영 코드에서 스키마 생성이나 변경을 수행하지 않는다.
-- 실제 KRX 종목 목록 수집, 일봉 수집, 기술지표 계산, 신호 판정, 실제 리포트 리비전 내용 생성은 후속 이슈에서 연결한다.
+- 일봉 수집, 기술지표 계산, 신호 판정, 실제 리포트 리비전 내용 생성은 후속 이슈에서 연결한다.
