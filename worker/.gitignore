@@ -1,6 +1,10 @@
 # Local virtual environments
 .venv/
 
+# Local environment overrides
+.env.local
+.env.*.local
+
 # Test and coverage output
 .pytest_cache/
 .coverage

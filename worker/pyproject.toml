@@ -5,6 +5,8 @@ description = "Python worker package for Stock Reports Lab."
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "finance-datareader>=0.9",
+    "pandas>=2.0",
     "SQLAlchemy>=2.0",
     "psycopg[binary]>=3.0",
     "pydantic-settings>=2.0",
