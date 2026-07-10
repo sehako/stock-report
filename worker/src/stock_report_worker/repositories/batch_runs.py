@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime
 
-from sqlalchemy import Connection, Select, and_, insert, select, update
+from sqlalchemy import Connection, Select, and_, delete, insert, select, update
 
 from stock_report_worker.repositories.schema import batch_job_run, batch_stock_run
 
@@ -88,6 +88,18 @@ class BatchJobRunRepository:
 
 
 class BatchStockRunRepository:
+    def prune_to_stock_ids(
+        self,
+        connection: Connection,
+        *,
+        job_id: int,
+        stock_ids: list[int],
+    ) -> None:
+        statement = delete(batch_stock_run).where(batch_stock_run.c.batch_job_run_id == job_id)
+        if stock_ids:
+            statement = statement.where(batch_stock_run.c.stock_id.not_in(stock_ids))
+        connection.execute(statement)
+
     def ensure_pending(
         self,
         connection: Connection,

@@ -14,13 +14,18 @@ from stock_report_worker.config import WorkerSettings
 from stock_report_worker.jobs.daily_report import DailyReportBatch
 from stock_report_worker.jobs.locks import BatchLock, PostgresAdvisoryBatchLock
 from stock_report_worker.jobs.stock_runner import PermanentAnalysisError
-from stock_report_worker.jobs.target_stocks import InMemoryTargetStockProvider
+from stock_report_worker.jobs.target_stocks import InMemoryTargetStockProvider, TargetStock
 from stock_report_worker.jobs.trading_calendar import TradingDayStatus
+from stock_report_worker.krx.normalization import (
+    KrxStockListingUnavailable,
+    KrxStockListingUnavailableReason,
+)
 from stock_report_worker.repositories.schema import (
     batch_job_run,
     batch_stock_run,
     daily_stock_processing_status,
     metadata,
+    report_revision,
     stock,
 )
 
@@ -55,6 +60,49 @@ class PublisherSpy:
 
     def publish_initial(self, report_date: date, batch_job_run_id: int) -> None:
         self.calls.append((report_date, batch_job_run_id))
+
+
+class FakeTargetStockProvider:
+    def __init__(self, target_ids: list[int] | None = None, *, fail: bool = False) -> None:
+        self._target_ids = target_ids or []
+        self._fail = fail
+        self.calls: list[date] = []
+
+    def list_for(self, report_date: date) -> list[TargetStock]:
+        self.calls.append(report_date)
+        if self._fail:
+            raise KrxStockListingUnavailable(
+                KrxStockListingUnavailableReason.KRX_LISTING_FETCH_FAILED,
+                "KRX StockListing failed",
+            )
+        return [
+            TargetStock(
+                id=stock_id,
+                selection_rank=index,
+                selection_volume=stock_id * 10,
+                stock_code=f"{stock_id:06d}",
+            )
+            for index, stock_id in enumerate(self._target_ids, start=1)
+        ]
+
+
+class SequencedTargetStockProvider:
+    def __init__(self, target_id_sets: list[list[int]]) -> None:
+        self._target_id_sets = target_id_sets
+        self.calls: list[date] = []
+
+    def list_for(self, report_date: date) -> list[TargetStock]:
+        self.calls.append(report_date)
+        target_ids = self._target_id_sets.pop(0)
+        return [
+            TargetStock(
+                id=stock_id,
+                selection_rank=index,
+                selection_volume=stock_id * 10,
+                stock_code=f"{stock_id:06d}",
+            )
+            for index, stock_id in enumerate(target_ids, start=1)
+        ]
 
 
 @pytest.fixture()
@@ -122,6 +170,30 @@ def batch(
     )
 
 
+def batch_with_provider(
+    engine,
+    settings,
+    clock: FakeClock,
+    provider,
+    *,
+    status: TradingDayStatus = TradingDayStatus.OPEN,
+    task=None,
+    publisher=None,
+    lock=None,
+) -> DailyReportBatch:
+    return DailyReportBatch(
+        engine=engine,
+        settings=settings,
+        calendar=FakeCalendar(status),
+        target_stock_provider=provider,
+        stock_task=task or (lambda stock_id: None),
+        publisher=publisher or PublisherSpy(),
+        lock=lock,
+        now=clock.now,
+        sleeper=clock.sleep,
+    )
+
+
 def test_market_closed_is_successful_skip(engine, settings) -> None:
     clock = FakeClock()
     result = batch(engine, settings, clock, status=TradingDayStatus.CLOSED).run(date(2026, 7, 9))
@@ -170,6 +242,81 @@ def test_open_day_processes_target_stocks_in_order_and_publishes(engine, setting
     assert rows(engine, batch_job_run)[0]["status"] == "PUBLISHED_INITIAL"
     assert [row["status"] for row in rows(engine, batch_stock_run)] == ["SUCCEEDED"] * 3
     assert publisher.calls == [(date(2026, 7, 9), result.batch_job_run_id)]
+
+
+def test_open_day_uses_selected_targets_once_for_stock_runs_and_initial_status(
+    engine, settings
+) -> None:
+    seed_stocks(engine, [1, 2, 3])
+    clock = FakeClock()
+    provider = FakeTargetStockProvider([3, 1])
+    calls: list[int] = []
+
+    result = batch_with_provider(
+        engine,
+        settings,
+        clock,
+        provider,
+        task=lambda stock_id: calls.append(stock_id),
+    ).run(date(2026, 7, 9))
+
+    assert result.exit_code == 0
+    assert provider.calls == [date(2026, 7, 9)]
+    assert calls == [3, 1]
+    assert [row["stock_id"] for row in rows(engine, batch_stock_run)] == [3, 1]
+    assert [row["analysis_status"] for row in rows(engine, daily_stock_processing_status)] == [
+        "DATA_PREPARING",
+        "DATA_PREPARING",
+    ]
+
+
+def test_krx_listing_unavailable_delays_batch_without_stock_runs_or_revision(
+    engine, settings
+) -> None:
+    clock = FakeClock()
+    provider = FakeTargetStockProvider(fail=True)
+
+    result = batch_with_provider(engine, settings, clock, provider).run(date(2026, 7, 9))
+
+    job = rows(engine, batch_job_run)[0]
+    assert result.exit_code == 1
+    assert result.status == "DELAYED"
+    assert job["status"] == "DELAYED"
+    assert "KRX_LISTING_FETCH_FAILED" in job["last_error"]
+    assert job["finished_at"] is not None
+    assert rows(engine, batch_stock_run) == []
+    assert rows(engine, daily_stock_processing_status) == []
+    assert rows(engine, report_revision) == []
+
+
+def test_market_closed_does_not_collect_target_stocks(engine, settings) -> None:
+    clock = FakeClock()
+    provider = FakeTargetStockProvider([1])
+
+    result = batch_with_provider(
+        engine,
+        settings,
+        clock,
+        provider,
+        status=TradingDayStatus.CLOSED,
+    ).run(date(2026, 7, 9))
+
+    assert result.exit_code == 0
+    assert provider.calls == []
+
+
+def test_rerun_replaces_previous_target_stock_rows_with_current_selection(engine, settings) -> None:
+    seed_stocks(engine, [1, 2, 3])
+    clock = FakeClock()
+    provider = SequencedTargetStockProvider([[1, 2], [3]])
+    report_date = date(2026, 7, 9)
+
+    first = batch_with_provider(engine, settings, clock, provider).run(report_date)
+    second = batch_with_provider(engine, settings, clock, provider).run(report_date)
+
+    assert first.batch_job_run_id == second.batch_job_run_id
+    assert [row["stock_id"] for row in rows(engine, batch_stock_run)] == [3]
+    assert [row["stock_id"] for row in rows(engine, daily_stock_processing_status)] == [3]
 
 
 def test_timeout_wrapper_path_records_retryable(engine, settings) -> None:
