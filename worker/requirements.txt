@@ -1,2 +1,0 @@
-# Runtime dependencies for the worker package.
-# The current scaffold has no external runtime dependencies yet.
