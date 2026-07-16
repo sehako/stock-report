@@ -105,6 +105,26 @@ infrastructure → domain
 - domain은 presentation과 infrastructure를 의존하지 않는다.
 - application은 infrastructure 구현체가 아닌 domain 인터페이스에 의존한다.
 
+## 테스트 코드 작성 규칙
+
+- 테스트 클래스와 테스트 메서드에는 `@DisplayName`을 명시한다.
+- `@DisplayName`은 테스트 조건과 기대 결과를 자연스러운 문장으로 설명한다.
+- 테스트 메서드 이름은 한글로 작성한다.
+- 테스트 메서드 이름은 `동작_기대결과` 형식으로 간결하게 작성한다.
+- 테스트 메서드 이름은 `@DisplayName`과 같은 시나리오를 표현하되, 문구가 완전히 같을 필요는 없다.
+
+```kotlin
+@DisplayName("ExampleService 테스트")
+class ExampleServiceTest {
+
+    @Test
+    @DisplayName("저장된 데이터가 있으면 최신 수치를 반환한다")
+    fun 최신_수치_반환() {
+        // ...
+    }
+}
+```
+
 ## 네이밍 규칙
 
 | 역할                  | 규칙                      |
