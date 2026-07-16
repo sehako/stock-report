@@ -8,7 +8,7 @@
 - 커밋 메시지는 `type(scope): description` 형식을 따른다.
   - `description`은 한글로 작성한다.
   - body와 footer는 작성하지 않는다.
-- 원격 이슈 작성 시 `.github/ISSUE_TEMPLATE`에 있는 문서를 기반으로 작성한다.
+- 이슈 작업 시 `.github/ISSUE_TEMPLATE`에 있는 문서를 기반으로 작성한다.
 
 # 프로젝트 구조
 
