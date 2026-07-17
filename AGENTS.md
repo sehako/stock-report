@@ -23,6 +23,7 @@
 - 코드 작성 시 다음 아키텍처 문서를 따른다.
   - `app/backend`: `docs/architecture/backend.md`
   - `app/frontend`: `docs/architecture/frontend.md`
+  - `app/batch`: `docs/architecture/batch.md`
 
 - 기존 코드의 네이밍, 디렉터리 구조, 예외 처리 방식 및 응답 형식을 유지한다.
 - 요청과 직접 관련 없는 코드 정리나 포맷 변경은 수행하지 않는다.
