@@ -12,11 +12,11 @@ assignees: ""
 
 ## 작업 범위
 
-- [ ] `stock` 테이블을 생성한다.
-- [ ] `stock_price` 테이블을 생성한다.
-- [ ] `market_index_price` 테이블을 생성한다.
-- [ ] `stock_code`, `trade_date` 조합과 `index_code`, `trade_date` 조합에 중복 방지 제약을 적용한다.
-- [ ] 배치와 API에서 사용할 주요 조회 조건에 맞는 인덱스를 검토하고 적용한다.
+- [x] `stock` 테이블을 생성한다.
+- [x] `stock_price` 테이블을 생성한다.
+- [x] `market_index_price` 테이블을 생성한다.
+- [x] `stock_price(stock_id, trade_date)` 조합과 `market_index_price(index_code, trade_date)` 조합에 중복 방지 제약을 적용한다.
+- [x] 배치와 API에서 사용할 주요 조회 조건에 맞는 인덱스를 검토하고 적용한다.
 
 ## 검증 흐름
 
