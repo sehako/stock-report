@@ -1,1 +1,5 @@
 .DS_Store
+app/backend/.gradle/
+app/backend/.gradle-local/
+app/backend/bin/
+app/backend/build/
