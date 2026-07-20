@@ -6,6 +6,15 @@ from jobs.stock_daily_price.infrastructure.client.finance_data_reader_client imp
 from jobs.stock_daily_price.infrastructure.persistence.stock_daily_price_repository import (
     PsycopgStockDailyPriceRepository,
 )
+from jobs.market_index_daily_price.application.market_index_daily_price_runner import (
+    MarketIndexDailyPriceRunner,
+)
+from jobs.market_index_daily_price.infrastructure.client.finance_data_reader_client import (
+    FinanceDataReaderMarketIndexPriceClient,
+)
+from jobs.market_index_daily_price.infrastructure.persistence.market_index_daily_price_repository import (
+    PsycopgMarketIndexDailyPriceRepository,
+)
 from shared.config import load_batch_config
 from shared.logging import configure_logging
 
@@ -25,6 +34,11 @@ def main() -> None:
         PsycopgStockDailyPriceRepository(),
     )
     stock_daily_price_runner.run()
+    market_index_daily_price_runner = MarketIndexDailyPriceRunner(
+        FinanceDataReaderMarketIndexPriceClient(),
+        PsycopgMarketIndexDailyPriceRepository(),
+    )
+    market_index_daily_price_runner.run()
 
 
 if __name__ == "__main__":
