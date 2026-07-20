@@ -19,12 +19,14 @@
 - [x] (2026-07-19 17:00+0900) `stock_price` 스키마와 백엔드 스키마 테스트를 확인해 중복 방지 기준과 컬럼 의미를 확정했다.
 - [x] (2026-07-19 17:00+0900) 구현 위치, 데이터 흐름, 검증 방법을 현재 저장소 상태 기준으로 계획했다.
 - [x] (2026-07-19 18:20+0900) 계획 검토를 통해 부분 실패 종료 상태, 최초/증분 조회 기준, upsert 정책, 정규화 실패 처리, 트랜잭션 경계를 확정해 이 문서에 반영했다.
-- [ ] 실패하는 테스트 작성.
-- [ ] 최소 구현.
-- [ ] 리팩터링.
-- [ ] 전체 테스트 및 수동 검증.
-- [ ] 결과와 회고 작성.
-- [ ] ExecPlan 최종 상태 확인.
+- [x] (2026-07-20 14:19+0900) 실패하는 테스트를 먼저 작성하고, 새 `stock_daily_price` 패키지가 없어 `ModuleNotFoundError: No module named 'jobs.stock_daily_price'`로 실패하는 것을 확인했다.
+- [x] (2026-07-20 14:24+0900) 도메인 모델, 정규화 로직, FDR client, runner, PostgreSQL 저장소, 기본 실행 연결, README 갱신을 최소 구현했다.
+- [x] (2026-07-20 14:27+0900) pandas `Timestamp`가 Python `date` 하위 타입처럼 판정되는 문제를 고쳐 정규화 결과가 `datetime.date`가 되게 했고, runner 예외 처리의 중복 타입을 제거했다.
+- [x] (2026-07-20 14:29+0900) 전체 배치 자동 테스트를 실행해 26개 테스트가 모두 통과하는 것을 확인했다.
+- [x] (2026-07-20 14:30+0900) 초기에는 `DATABASE_URL`이 설정되어 있지 않아 실제 PostgreSQL 대상 수동 통합 검증을 보류했고, 이후 사용자가 접속 정보를 제공해 같은 검증을 완료했다.
+- [x] (2026-07-20 14:32+0900) 사용자가 로컬 PostgreSQL 접속 정보를 제공해 실제 DB 접속, 배치 2회 실행, 중복 확인 쿼리까지 수동 통합 검증을 완료했다.
+- [x] (2026-07-20 14:30+0900) 결과와 회고 작성.
+- [x] (2026-07-20 14:30+0900) ExecPlan 최종 상태 확인.
 
 ## 예상 밖의 발견
 
@@ -40,9 +42,17 @@
   증거: `app/batch/tests/jobs/stock_universe/test_service.py`, `test_stock_universe_runner.py`, `test_stock_universe_repository.py`는 샘플 row와 fake repository 또는 fake connection으로 도메인 규칙, runner 흐름, SQL 의도를 검증한다.
   영향: 이슈 03 자동 테스트도 `FinanceDataReader` 실제 호출과 개발 DB 쓰기에 의존하지 않게 작성한다. 실제 FDR 호출과 PostgreSQL 반영은 수동 통합 검증으로 분리한다.
 
-- 관찰: `FinanceDataReader` 국내 주식 가격 데이터는 수정가격이며, KRX 장기 조회는 `KRX:{stock_code}` 심볼과 충분히 이른 시작일을 사용할 수 있다.
-  증거: `app/batch/pyproject.toml`은 `finance-datareader>=0.9.96`을 요구한다. `FinanceDataReader` Quick Start는 국내 주식 가격 데이터가 수정가격이라고 설명하고, 0.9.92 릴리스 노트는 `KRX:000100`처럼 데이터 소스를 명시하고 긴 기간 조회를 2년 단위로 나눠 병합하는 방식을 설명한다.
-  영향: 최초 적재는 시작일 생략이 아니라 `KRX:{stock_code}`와 `1900-01-01`을 사용해 FDR이 반환 가능한 최대 KRX 기간을 요청한다. 수정가격은 과거 값이 재계산될 수 있으므로 가격 저장 충돌 시 기존 row를 원천 데이터 기준으로 갱신하는 `DO UPDATE`가 더 적합하다.
+- 관찰: `FinanceDataReader` 국내 주식 가격 데이터는 수정가격이며, 현재 설치된 `finance-datareader 0.9.202`에서는 일반 종목코드 조회가 실제 KRX 일봉 적재에 동작한다.
+  증거: `app/batch/pyproject.toml`은 `finance-datareader>=0.9.96`을 요구한다. 실제 수동 확인에서 `FinanceDataReader.DataReader("KRX:005930", "2024-01-01", "2025-01-01")`는 `400 - Bad Request(Period is up to 2 years)`를 반환했고, `FinanceDataReader.DataReader("005930", "2024-01-01", "2025-01-01")`는 244개 row를 반환했다.
+  영향: FDR client는 `KRX:{stock_code}` 접두어를 붙이지 않고 `FinanceDataReader.DataReader(stock_code, start)`를 호출한다. 수정가격은 과거 값이 재계산될 수 있으므로 가격 저장 충돌 시 기존 row를 원천 데이터 기준으로 갱신하는 `DO UPDATE`를 유지한다.
+
+- 관찰: 새 테스트 파일명을 `test_service.py`로 만들면 기존 `stock_universe/test_service.py`와 pytest import 이름이 충돌한다.
+  증거: 전체 테스트 실행에서 `import file mismatch: imported module 'test_service' ... tests/jobs/stock_daily_price/test_service.py ... tests/jobs/stock_universe/test_service.py` 오류가 발생했다.
+  영향: 새 도메인 서비스 테스트 파일명을 `app/batch/tests/jobs/stock_daily_price/test_stock_daily_price_service.py`로 변경했다. 이후 `cd app/batch && .venv/bin/python -m pytest`는 26개 테스트를 모두 통과했다.
+
+- 관찰: `KRX:` 접두어를 붙인 일봉 조회는 실제 배치에서 tracked 200개 종목 모두 실패시켰다.
+  증거: `DATABASE_URL`을 설정한 뒤 `python -m batch.main`을 실행하자 `stock_universe`는 성공했지만, `stock_daily_price`는 각 종목마다 `ValueError: 400 - Bad Request(Period is up to 2 years)`를 기록했고 `total=200 success=0 skipped=0 failed=200 saved=0`으로 종료했다.
+  영향: TDD로 `FinanceDataReaderStockPriceClient` 테스트 기대값을 `KRX:{stock_code}`에서 일반 `stock_code`로 바꿔 실패를 확인한 뒤, client 구현을 `fdr.DataReader(stock_code, start)`로 수정했다. 수정 후 전체 자동 테스트와 실제 배치 2회 실행이 통과했다.
 
 ## 결정 기록
 
@@ -54,9 +64,9 @@
   근거: 가격 저장에는 내부 기본키인 `stock.id`가 필요하고, FDR 조회에는 종목코드가 필요하다. 로그에는 사용자가 실패 종목을 식별할 수 있도록 종목코드와 종목명이 필요하다. 마지막 적재일은 `stock_price`의 `MAX(trade_date)`로 계산해 추가 수집 시작일을 정한다.
   날짜/작성자: 2026-07-19 / Codex
 
-- 결정: 최초 적재 종목은 `FinanceDataReader.DataReader(f"KRX:{stock_code}", "1900-01-01")`로 조회한다.
-  근거: 이슈는 "조회 가능한 최초 일봉부터" 수집하라고 요구한다. 저장소에는 최초 상장일 컬럼이 없고, `FinanceDataReader`는 `KRX:` 접두어로 KRX 데이터 소스를 명시할 수 있다. `1900-01-01`은 실제 상장일을 뜻하지 않고 FDR이 반환 가능한 최대 KRX 기간을 요청하기 위한 충분히 이른 시작일이다. 외부 호출 성공은 보장하지 않으므로 특정 종목에서 예외가 나면 그 종목은 실패로 기록하고 다음 종목 처리를 계속한다.
-  날짜/작성자: 2026-07-19 / Codex
+- 결정: 최초 적재 종목은 `FinanceDataReader.DataReader(stock_code, "1900-01-01")`로 조회한다.
+  근거: 이슈는 "조회 가능한 최초 일봉부터" 수집하라고 요구한다. 저장소에는 최초 상장일 컬럼이 없다. 구현 전 계획에서는 `KRX:` 접두어로 KRX 데이터 소스를 명시하려 했지만, 실제 `finance-datareader 0.9.202` 연동 검증에서 `KRX:` 접두어는 400 오류를 반환했고 일반 종목코드는 정상 데이터를 반환했다. `1900-01-01`은 실제 상장일을 뜻하지 않고 FDR이 반환 가능한 기간을 요청하기 위한 충분히 이른 시작일이다. 외부 호출 성공은 보장하지 않으므로 특정 종목에서 예외가 나면 그 종목은 실패로 기록하고 다음 종목 처리를 계속한다.
+  날짜/작성자: 2026-07-19, 2026-07-20 수정 / Codex
 
 - 결정: `change_rate`에는 설계 문서의 정의대로 `FinanceDataReader.DataReader` 결과의 `Change` 원값을 저장하되, `Change`가 없거나 변환할 수 없으면 `NULL`로 저장한다.
   근거: `docs/specs/2026-07-15-stock-market-data-service-design.md`는 `stock_price.change_rate`를 `FinanceDataReader`의 `Change` 원값으로 저장하고 API에서 100을 곱해 퍼센트로 반환한다고 설명한다. 프로토타입 일부는 종가 차이로 등락률을 계산하지만, MVP 데이터 계약은 `Change` 원값 저장이다. 실제 DB 스키마에서 `change_rate`는 nullable이고 가격과 거래량만 `NOT NULL`이므로, `Change` 결측 때문에 정상 가격 row 전체를 버릴 필요는 없다.
@@ -88,11 +98,19 @@
 
 ## 결과와 회고
 
-아직 구현은 시작하지 않았다. 이 계획은 현재 저장소의 Python 배치 구조, PostgreSQL 스키마, 기존 테스트 관례를 조사해 작성한 구현 전 계획이다.
+이 계획의 구현 범위는 완료됐다. `app/batch/src/jobs/stock_daily_price`에 종목 일봉 적재 작업 패키지를 추가했고, `app/batch/src/batch/main.py`는 기존 `stock_universe` 성공 뒤 `StockDailyPriceRunner.run()`을 호출한다. `stock_universe` digest 검증이 실패하면 일봉 적재 runner를 호출하지 않는다.
+
+정규화 로직은 FDR 결과의 날짜 index와 `Open`, `High`, `Low`, `Close`, `Volume`, `Change` 값을 `StockDailyPrice` 모델로 변환한다. 필수값이 깨진 row는 제외하고 정상 row는 유지한다. `Change`가 없거나 변환할 수 없으면 `change_rate = None`으로 둔다. 같은 거래일이 중복되면 마지막 row 하나를 저장 대상으로 남긴다.
+
+저장소 구현은 `stock.tracked = true` 종목과 종목별 `MAX(stock_price.trade_date)`를 조회하고, 가격 row를 `ON CONFLICT (stock_id, trade_date) DO UPDATE`로 upsert한다. 한 종목 가격 목록 저장은 하나의 commit 또는 rollback 경계로 처리한다. runner는 빈 FDR 결과를 스킵으로 기록하고, 한 종목의 FDR 호출, 정규화, 저장 실패를 실패 목록에 누적한 뒤 다음 종목을 계속 처리한다.
+
+검증 결과는 다음과 같다. 먼저 `cd app/batch && .venv/bin/python -m pytest tests/jobs/stock_daily_price tests/test_batch_main.py`를 실행했을 때 새 패키지 부재로 `ModuleNotFoundError: No module named 'jobs.stock_daily_price'`가 발생해 RED를 확인했다. 구현 뒤 같은 범위는 13개 테스트가 모두 통과했다. 최종 검증으로 `cd app/batch && .venv/bin/python -m pytest`를 실행했고 26개 테스트가 모두 통과했다.
+
+실제 PostgreSQL과 외부 FDR을 사용하는 수동 통합 검증도 완료했다. 로컬 PostgreSQL `stock_report` 데이터베이스에 접속해 `stock`, `stock_price`, `market_index_price` 세 테이블이 있음을 확인했다. 수정된 배치를 두 번 실행했고, 첫 실행 뒤 `stock_price`는 495,247건, 적재 종목 수는 200개, 중복 건수는 0개였다. 두 번째 실행 뒤에도 `stock_price`는 495,247건, `tracked = true` 종목 수는 200개, 적재 종목 수는 200개, 중복 건수는 0개였다.
 
 ## 맥락과 방향 안내
 
-저장소 루트는 `/Users/sehako/workspace/stock-report`이다. Python 배치 코드는 `app/batch` 아래에 있으며, 의존성은 `app/batch/pyproject.toml`에서 관리한다. 현재 의존성에는 `finance-datareader`, `pandas`, `psycopg[binary]`, `pytest`가 이미 포함되어 있어 이 이슈를 위해 새 라이브러리를 추가할 필요는 없어 보인다.
+저장소 루트는 `/Users/sehako/workspace/stock-report-feature-issue-03-batch-stock-daily-price-loading`이다. Python 배치 코드는 `app/batch` 아래에 있으며, 의존성은 `app/batch/pyproject.toml`에서 관리한다. 현재 의존성에는 `finance-datareader`, `pandas`, `psycopg[binary]`, `pytest`가 이미 포함되어 있어 이 이슈를 위해 새 라이브러리를 추가하지 않았다.
 
 `app/batch/src/jobs/stock_universe`는 이슈 02에서 구현된 거래량 상위 200개 종목 선정 작업이다. 이 작업은 `FinanceDataReader.StockListing("KRX")`로 KRX 목록을 조회하고, 거래량 상위 200개를 `stock` 테이블에 upsert하며, 현재 선정되지 않은 기존 종목을 `tracked = false`로 바꾼다. 이슈 03은 이 작업이 만든 `tracked = true` 종목을 읽어 가격을 적재한다.
 
@@ -100,7 +118,7 @@
 
 `app/backend/src/main/resources/db/migration/V1__create_market_data_tables.sql`은 실제 데이터베이스 계약이다. `stock_price`에는 `stock_id`, `trade_date`, `open_price`, `high_price`, `low_price`, `close_price`, `volume`, `change_rate`가 있고, `stock_id`, `trade_date` 조합에 유니크 제약이 있다. 유니크 제약은 같은 종목의 같은 거래일 일봉이 중복 저장되지 않도록 데이터베이스가 강제하는 규칙이다.
 
-`FinanceDataReader.DataReader(symbol, start, end)`는 종목코드로 일봉 데이터를 가져오는 외부 라이브러리 호출이다. 기존 프로토타입 `docs/prototypes/stock-analysis/finance_data_to_csv.py`와 `docs/prototypes/stock-analysis/stoch_macd_golden_cross_scanner.py`는 이 호출로 `Open`, `High`, `Low`, `Close`, `Volume` 컬럼을 읽는다. 설계 문서는 추가로 `Change` 컬럼 원값을 `change_rate`에 저장하라고 정의한다. 최초 적재에서는 `symbol`에 `KRX:{stock_code}`를 넘기고, `start`에 `1900-01-01`을 넘겨 FDR이 반환 가능한 최대 KRX 기간을 요청한다. `Change`가 없거나 변환할 수 없어도 가격 row는 저장하고 `change_rate`만 `NULL`로 둔다.
+`FinanceDataReader.DataReader(symbol, start, end)`는 종목코드로 일봉 데이터를 가져오는 외부 라이브러리 호출이다. 기존 프로토타입 `docs/prototypes/stock-analysis/finance_data_to_csv.py`와 `docs/prototypes/stock-analysis/stoch_macd_golden_cross_scanner.py`는 이 호출로 `Open`, `High`, `Low`, `Close`, `Volume` 컬럼을 읽는다. 설계 문서는 추가로 `Change` 컬럼 원값을 `change_rate`에 저장하라고 정의한다. 최초 적재에서는 `symbol`에 일반 `stock_code`를 넘기고, `start`에 `1900-01-01`을 넘겨 FDR이 반환 가능한 최대 기간을 요청한다. `Change`가 없거나 변환할 수 없어도 가격 row는 저장하고 `change_rate`만 `NULL`로 둔다.
 
 ## 작업 계획
 
@@ -108,7 +126,7 @@
 
 저장소 인터페이스는 두 책임을 가진다. 첫째, `stock`과 `stock_price`를 조인해 `tracked = true` 종목별 마지막 적재일을 조회한다. 이 조회는 `stock.id`, `stock.market`, `stock.stock_code`, `stock.stock_name`, `MAX(stock_price.trade_date)`를 반환해야 한다. 둘째, 한 종목의 가격 목록을 `stock_price`에 upsert한다. upsert는 `ON CONFLICT (stock_id, trade_date) DO UPDATE`를 사용해 같은 종목과 거래일이 이미 있으면 가격 값을 갱신하고, 없으면 새로 넣는다.
 
-FDR client는 종목코드와 시작일을 받아 `FinanceDataReader.DataReader`를 호출한다. 마지막 적재일이 없는 최초 적재에서는 `FinanceDataReader.DataReader(f"KRX:{stock_code}", "1900-01-01")`로 조회 가능한 최대 KRX 기간을 요청한다. 마지막 적재일이 있는 종목은 마지막 적재일 다음 날을 시작일로 계산하고, 주말과 공휴일 보정은 하지 않는다. 시작일이 오늘 이후가 되거나 FDR이 빈 DataFrame을 반환하면 해당 종목은 실패가 아니라 스킵으로 기록한다.
+FDR client는 종목코드와 시작일을 받아 `FinanceDataReader.DataReader`를 호출한다. 마지막 적재일이 없는 최초 적재에서는 `FinanceDataReader.DataReader(stock_code, "1900-01-01")`로 조회 가능한 최대 기간을 요청한다. 마지막 적재일이 있는 종목은 마지막 적재일 다음 날을 시작일로 계산하고, 주말과 공휴일 보정은 하지 않는다. 시작일이 오늘 이후가 되거나 FDR이 빈 DataFrame을 반환하면 해당 종목은 실패가 아니라 스킵으로 기록한다.
 
 runner는 tracked 종목 목록을 읽고 종목별로 수집, 정규화, 저장을 반복한다. 각 종목 처리 결과는 성공, 스킵, 실패 중 하나로 기록한다. 성공은 하나 이상의 일봉 row가 upsert된 경우다. 스킵은 새로 수집할 row가 없는 경우다. 실패는 FDR 호출, 저장 가능한 row가 0개인 정규화 실패, DB 저장 중 예외가 발생한 경우다. 실패는 로그에 남기고 다음 종목으로 진행하며, 개별 종목 실패가 있어도 `stock_daily_price` 작업은 성공 종료한다. 필수 설정 누락, DB 연결 실패, tracked 종목 목록 조회 실패처럼 작업 자체를 시작하거나 입력 집합을 읽을 수 없는 오류는 전체 실패로 본다.
 
@@ -116,7 +134,7 @@ runner는 tracked 종목 목록을 읽고 종목별로 수집, 정규화, 저장
 
 ## 마일스톤
 
-첫 번째 마일스톤은 실패하는 테스트로 기대 동작을 고정하는 것이다. 이 마일스톤이 끝나면 `app/batch/tests/jobs/stock_daily_price` 아래에 도메인 정규화 테스트, runner 흐름 테스트, 저장소 SQL 의도 테스트가 생긴다. 아직 구현 전이므로 테스트는 import 실패 또는 미구현 오류로 실패할 수 있다. 검증 명령은 `cd app/batch` 후 `.venv/bin/python -m pytest tests/jobs/stock_daily_price`이고, 기대 결과는 새 모듈이 아직 없어 실패하는 것이다.
+첫 번째 마일스톤은 실패하는 테스트로 기대 동작을 고정하는 것이다. 이 마일스톤이 끝나면 `app/batch/tests/jobs/stock_daily_price` 아래에 도메인 정규화 테스트, FDR client 테스트, runner 흐름 테스트, 저장소 SQL 의도 테스트가 생기고, `app/batch/tests/test_batch_main.py`에 기본 실행 연결 테스트가 생긴다. RED 검증 명령은 `cd app/batch` 후 `.venv/bin/python -m pytest tests/jobs/stock_daily_price tests/test_batch_main.py`였고, 새 모듈이 없어서 `ModuleNotFoundError: No module named 'jobs.stock_daily_price'`로 실패했다.
 
 두 번째 마일스톤은 종목 일봉 도메인 모델과 정규화 로직을 구현하는 것이다. 이 마일스톤이 끝나면 샘플 DataFrame 또는 row 목록에서 거래일, 시가, 고가, 저가, 종가, 거래량, `Change` 원값이 `StockDailyPrice` 모델로 변환된다. 거래일은 Python `date`, 가격과 등락률은 `Decimal`, 거래량은 `int`로 다룬다. 필수 가격 값이나 거래일이 없는 row는 저장하지 않고 제외 사유를 결과에 남긴다. `Change`가 없거나 변환할 수 없으면 `change_rate`를 `None`으로 둔다. 같은 거래일이 중복되면 마지막 row를 우선해 하나만 남기고 중복 제거 수를 결과에 남긴다. 저장 가능한 row가 0개인 종목은 정규화 실패로 판단한다. 이 마일스톤의 검증은 도메인 테스트 통과다.
 
@@ -130,13 +148,13 @@ runner는 tracked 종목 목록을 읽고 종목별로 수집, 정규화, 저장
 
 작업 디렉터리:
 
-    /Users/sehako/workspace/stock-report
+    /Users/sehako/workspace/stock-report-feature-issue-03-batch-stock-daily-price-loading
 
-1. 실패하는 테스트를 먼저 추가한다. 예상 변경 파일은 `app/batch/tests/jobs/stock_daily_price/test_service.py`, `app/batch/tests/jobs/stock_daily_price/test_stock_daily_price_runner.py`, `app/batch/tests/jobs/stock_daily_price/test_stock_daily_price_repository.py`이다. 테스트는 외부 네트워크와 실제 DB 없이 동작해야 한다.
+1. 실패하는 테스트를 먼저 추가한다. 변경 파일은 `app/batch/tests/jobs/stock_daily_price/test_stock_daily_price_service.py`, `app/batch/tests/jobs/stock_daily_price/test_finance_data_reader_client.py`, `app/batch/tests/jobs/stock_daily_price/test_stock_daily_price_runner.py`, `app/batch/tests/jobs/stock_daily_price/test_stock_daily_price_repository.py`, `app/batch/tests/test_batch_main.py`이다. 테스트는 외부 네트워크와 실제 DB 없이 동작한다.
 
 2. 도메인 모델과 정규화 로직을 추가한다. 예상 변경 파일은 `app/batch/src/jobs/stock_daily_price/domain/model.py`, `app/batch/src/jobs/stock_daily_price/domain/service.py`, `app/batch/src/jobs/stock_daily_price/domain/repository.py`이다. 모델은 `TrackedStock`, `StockDailyPrice`, `StockDailyPriceCollectionResult` 같은 이름을 사용한다. 정규화 함수는 FDR 결과의 `Open`, `High`, `Low`, `Close`, `Volume`, `Change` 컬럼과 날짜 index를 읽어 저장 가능한 가격 목록을 만든다. `Open`, `High`, `Low`, `Close`, `Volume`, 거래일은 필수값으로 보고, `Change`는 선택값으로 처리한다. 일부 row만 깨졌으면 정상 row는 저장 대상으로 남기고 제외 row 수와 사유를 결과에 남긴다. 같은 거래일이 중복되면 마지막 row 하나만 남긴다.
 
-3. FDR client를 추가한다. 예상 변경 파일은 `app/batch/src/jobs/stock_daily_price/infrastructure/client/finance_data_reader_client.py`이다. client는 실제 `FinanceDataReader` import를 메서드 안에서 수행해 테스트에서 외부 라이브러리를 직접 호출하지 않게 한다. 마지막 적재일이 있으면 그 다음 날부터 조회하고, 마지막 적재일이 없으면 `f"KRX:{stock_code}"`와 `"1900-01-01"`로 전체 KRX 기간 조회를 요청한다.
+3. FDR client를 추가한다. 변경 파일은 `app/batch/src/jobs/stock_daily_price/infrastructure/client/finance_data_reader_client.py`이다. client는 실제 `FinanceDataReader` import를 메서드 안에서 수행해 테스트에서 외부 라이브러리를 직접 호출하지 않게 한다. 마지막 적재일이 있으면 그 다음 날부터 조회하고, 마지막 적재일이 없으면 일반 `stock_code`와 `"1900-01-01"`로 FDR이 반환 가능한 최대 기간 조회를 요청한다.
 
 4. application runner를 추가한다. 예상 변경 파일은 `app/batch/src/jobs/stock_daily_price/application/dto.py`, `app/batch/src/jobs/stock_daily_price/application/stock_daily_price_runner.py`이다. runner는 저장소에서 tracked 종목을 조회하고, 종목별 시작일을 계산하고, client에서 일봉을 가져오고, service로 정규화한 뒤 저장소에 upsert를 요청한다. 각 종목별 성공, 스킵, 실패 로그를 남긴다.
 
@@ -146,14 +164,14 @@ runner는 tracked 종목 목록을 읽고 종목별로 수집, 정규화, 저장
 
 7. 자동 테스트를 실행한다.
 
-    cd /Users/sehako/workspace/stock-report/app/batch
+    cd /Users/sehako/workspace/stock-report-feature-issue-03-batch-stock-daily-price-loading/app/batch
     .venv/bin/python -m pytest
 
     기대 결과는 모든 배치 테스트가 통과하는 것이다. `.venv`가 없다면 `python3.14 -m venv .venv`, `. .venv/bin/activate`, `python -m pip install -e ".[dev]"` 순서로 준비한다.
 
 8. 가능한 경우 수동 통합 검증을 실행한다.
 
-    cd /Users/sehako/workspace/stock-report/app/batch
+    cd /Users/sehako/workspace/stock-report-feature-issue-03-batch-stock-daily-price-loading/app/batch
     . .venv/bin/activate
     python -m batch.main
     python -m batch.main
@@ -176,7 +194,7 @@ runner는 tracked 종목 목록을 읽고 종목별로 수집, 정규화, 저장
 
 - 사용자는 `app/batch`에서 `python -m batch.main`을 실행해 tracked 종목의 일봉 적재를 시작할 수 있다.
 - 배치는 `stock.tracked = true` 종목을 조회하고, 각 종목의 마지막 적재일을 `stock_price.MAX(trade_date)`로 계산한다.
-- 최초 적재 종목은 `KRX:{stock_code}`와 `1900-01-01` 시작일로 FDR이 조회 가능한 최대 KRX 일봉을 요청하고, 저장 가능한 row를 `stock_price`에 저장한다.
+- 최초 적재 종목은 일반 `stock_code`와 `1900-01-01` 시작일로 FDR이 조회 가능한 최대 일봉을 요청하고, 저장 가능한 row를 `stock_price`에 저장한다.
 - 이미 적재된 종목은 마지막 적재일 다음 날 이후 일봉만 조회하며, 주말과 공휴일 보정은 하지 않는다.
 - 저장된 row에는 `stock_id`, `trade_date`, `open_price`, `high_price`, `low_price`, `close_price`, `volume`이 채워진다. `change_rate`는 FDR의 `Change` 원값이며, `Change`가 없거나 변환할 수 없으면 `NULL`로 저장한다.
 - 같은 배치를 반복 실행해도 `stock_id`, `trade_date` 기준 중복 row가 생기지 않는다.
@@ -190,7 +208,7 @@ runner는 tracked 종목 목록을 읽고 종목별로 수집, 정규화, 저장
 - `Change`가 없거나 변환할 수 없는 row는 `change_rate = None`으로 정규화된다.
 - 일부 row만 필수값 정규화에 실패하면 정상 row는 유지되고 실패 row 수가 결과에 남는다.
 - 같은 거래일 중복 row가 있으면 마지막 row가 남고 중복 제거 수가 결과에 남는다.
-- 마지막 적재일이 있으면 다음 날을 시작일로 계산하고, 없으면 `KRX:{stock_code}`와 `1900-01-01`로 최대 KRX 기간 조회를 요청한다.
+- 마지막 적재일이 있으면 다음 날을 시작일로 계산하고, 없으면 일반 `stock_code`와 `1900-01-01`로 최대 기간 조회를 요청한다.
 - 빈 FDR 결과는 스킵으로 기록된다.
 - 한 종목 client 예외 또는 저장소 예외가 다음 종목 처리를 막지 않고, 개별 종목 실패만으로 runner 결과가 전체 실패가 되지 않는다.
 - 저장소 조회 SQL이 tracked 종목과 마지막 적재일을 함께 읽는다.
@@ -259,3 +277,5 @@ FDR 조회 정책을 확인한 참고 문서는 다음과 같다.
 
 - 2026-07-19 / Codex: 계획 초안 작성. 이유: `docs/issues/03-batch-stock-daily-price-loading.md`의 Python 배치 구현을 현재 저장소 구조와 실제 DB 스키마에 맞춰 자기완결적으로 수행할 수 있게 하기 위해서.
 - 2026-07-19 / Codex: 계획 검토 결과를 반영했다. 이유: 부분 실패 종료 상태, `stock_universe` 연결 범위, 최초/증분 FDR 조회 방식, `DO UPDATE` upsert, `Change` nullable 처리, row 정규화 실패 처리, 중복 거래일 처리, 종목 단위 트랜잭션 경계를 구현자가 추가 판단 없이 따를 수 있게 하기 위해서.
+- 2026-07-20 / Codex: 구현 결과와 검증 결과를 반영했다. 이유: 실제 추가된 파일명, pytest import 충돌 해결, 자동 테스트 통과 결과, `DATABASE_URL` 미설정으로 수동 통합 검증을 건너뛴 사유를 살아 있는 ExecPlan에 남기기 위해서.
+- 2026-07-20 / Codex: 실제 FDR plus PostgreSQL 수동 통합 검증 결과를 반영했다. 이유: `KRX:` 접두어가 현재 FDR에서 실패한다는 발견, 일반 종목코드로 client를 수정한 결정, 배치 2회 실행 후 중복 0건이라는 수락 기준 충족 결과를 다음 작업자가 ExecPlan만 보고 이해할 수 있게 하기 위해서.
