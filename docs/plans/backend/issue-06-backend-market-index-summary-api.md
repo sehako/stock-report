@@ -18,13 +18,13 @@
 - [x] (2026-07-17 00:00KST) `PLANS.md`, `EXECPLAN_TEMPLATE.md`, 대상 이슈, 백엔드 아키텍처 문서, 기존 스키마 계획, 현재 백엔드 코드를 조사했다.
 - [x] (2026-07-17 00:00KST) API 응답 계약, 계층 구조, 조회 방식, 결측 데이터 처리 방식을 계획에 확정했다.
 - [x] (2026-07-17 00:00KST) 구현 전 계획 검토에서 응답 필드와 등락률 계산 기준의 모호함을 확인하고 API 계약을 수정했다.
-- [ ] `spring-boot-starter-web` 의존성을 추가하고 HTTP API 실행 기반을 만든다.
-- [ ] `marketindex` 도메인 패키지에 controller, service, repository 인터페이스, JDBC repository 구현체, 응답 타입을 추가한다.
-- [ ] 저장된 최신 row와 직전 row를 기준으로 최신 종가, 전일 대비 값, 등락률 퍼센트를 만든다.
-- [ ] 데이터가 없는 지수는 HTTP 200 응답 안에서 `status: "EMPTY"`와 `null` 숫자 필드로 표현한다.
-- [ ] 관련 service 테스트와 JDBC repository 또는 controller 통합 테스트를 추가한다.
-- [ ] `cd app/backend && GRADLE_USER_HOME=$PWD/.gradle-local ./gradlew --no-daemon test`로 전체 백엔드 테스트를 통과시킨다.
-- [ ] 구현 결과와 검증 결과를 이 문서의 `결과와 회고`에 기록한다.
+- [x] (2026-07-20 14:12KST) `spring-boot-starter-web` 의존성을 추가하고 HTTP API 실행 기반을 만들었다.
+- [x] (2026-07-20 14:12KST) `marketindex` 도메인 패키지에 controller, service, repository 인터페이스, JDBC repository 구현체, 응답 타입을 추가했다.
+- [x] (2026-07-20 14:12KST) 저장된 최신 row와 직전 row를 기준으로 최신 종가, 전일 대비 값, 등락률 퍼센트를 만드는 service 로직을 구현했다.
+- [x] (2026-07-20 14:12KST) 데이터가 없는 지수는 HTTP 200 응답 안에서 `status: "EMPTY"`와 `null` 숫자 필드로 표현하도록 구현했다.
+- [x] (2026-07-20 14:12KST) service 테스트, JDBC repository 테스트, controller 테스트를 추가했다.
+- [x] (2026-07-20 14:15KST) `cd app/backend && GRADLE_USER_HOME=$PWD/.gradle-local ./gradlew clean test -q`로 전체 백엔드 테스트를 통과시켰다.
+- [x] (2026-07-20 14:12KST) 구현 결과와 검증 결과를 이 문서의 `결과와 회고`에 기록했다.
 
 ## 예상 밖의 발견
 
@@ -37,6 +37,12 @@
 
 - 관찰: `market_index_price.change_rate`는 nullable이므로 정상 배치에서는 값이 채워질 것으로 기대하더라도 API는 `null`을 방어해야 한다.
   증거: `app/backend/src/main/resources/db/migration/V1__create_market_data_tables.sql`의 `change_rate NUMERIC(10, 4)` 정의에는 `NOT NULL`이 없다.
+
+- 관찰: 현재 실행 환경에서는 Docker socket이 없어 Testcontainers 기반 테스트가 실행되지 않는다.
+  증거: `GRADLE_USER_HOME=$PWD/.gradle-local ./gradlew clean test -q` 실행 결과 `MarketDataSchemaTest`와 `MarketIndexPriceRepositoryImplTest`가 `Could not find a valid Docker environment` 또는 `Previous attempts to find a Docker environment failed`로 초기화에 실패했다. 같은 실행에서 service 테스트 4개와 controller 테스트 1개는 통과했다.
+
+- 관찰: Docker socket 구동 후에는 Testcontainers 기반 테스트를 포함한 전체 백엔드 테스트가 통과했다.
+  증거: `app/backend`에서 `GRADLE_USER_HOME=$PWD/.gradle-local ./gradlew clean test -q`를 실행했고 exit code 0으로 종료했다.
 
 ## 결정 기록
 
@@ -80,7 +86,11 @@
 ## 결과와 회고
 
 
-아직 구현은 시작하지 않았다. 계획 작성 단계에서 확인한 핵심 위험은 HTTP Web 의존성이 아직 없다는 점과 전일 대비 값을 저장하는 컬럼이 없다는 점이다. 이 계획은 두 위험을 각각 `spring-boot-starter-web` 추가와 저장된 직전 거래일 종가 기반 `changeValue` 계산으로 해결하도록 정했다. 구현 전 계획 검토에서 등락률은 재계산하지 않고 최신 row의 `change_rate`를 백분율 값으로 변환해 `changeRatePercent`로 응답하기로 수정했다.
+구현을 완료했다. `app/backend/build.gradle.kts`에 `spring-boot-starter-web`을 추가했고, `app/backend/src/main/kotlin/com/stockreport/marketindex` 아래에 controller, service, domain 타입, repository 인터페이스, JDBC repository 구현체, 응답 타입을 추가했다. `GET /api/market-indexes`는 `KOSPI`, `KOSDAQ` 두 항목을 고정 순서로 반환하며, 저장 데이터가 없으면 `EMPTY`, 최신 row는 있지만 전일 대비 값 또는 등락률 퍼센트가 비면 `PARTIAL`, 모든 수치가 있으면 `AVAILABLE`을 반환한다.
+
+TDD 순서로 먼저 `MarketIndexServiceTest`를 작성해 구현 타입 부재로 실패하는 것을 확인한 뒤 service와 domain 타입을 구현해 통과시켰다. 다음으로 `MarketIndexPriceRepositoryImplTest`를 작성해 JDBC 구현체 부재로 실패하는 것을 확인한 뒤 repository 구현체를 추가했다. 이 repository 테스트는 현재 환경의 Docker 부재로 런타임 검증은 완료하지 못했다. 마지막으로 `MarketIndexControllerTest`를 작성해 controller 부재로 실패하는 것을 확인한 뒤 Web 의존성과 controller를 추가해 통과시켰다.
+
+검증 결과 `GRADLE_USER_HOME=$PWD/.gradle-local ./gradlew test --tests com.stockreport.marketindex.application.MarketIndexServiceTest --tests com.stockreport.marketindex.presentation.MarketIndexControllerTest -q`는 통과했다. 처음 전체 테스트를 실행했을 때는 Docker socket이 없어 기존 `MarketDataSchemaTest`와 새 `MarketIndexPriceRepositoryImplTest`가 Testcontainers 초기화 단계에서 실패했다. Docker socket 구동 후 `GRADLE_USER_HOME=$PWD/.gradle-local ./gradlew clean test -q`를 다시 실행했고, service, controller, JDBC repository, 기존 schema 테스트를 포함한 전체 백엔드 테스트가 통과했다.
 
 ## 맥락과 방향 안내
 
