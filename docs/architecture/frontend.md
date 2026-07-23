@@ -152,6 +152,19 @@ app → pages → features → shared
 - 서버 상태는 Query 라이브러리를 통해 관리한다.
 - props 전달이 과도할 때만 Context 또는 상태 관리 도구를 사용한다.
 
+## 디자인 가이드 준수
+
+프론트엔드 UI를 구현하거나 수정할 때는 루트 `DESIGN.md`를 함께 확인한다.
+
+- 화면 레이아웃은 `DESIGN.md`의 Page Shell, Header, Section, Responsive Grid 패턴을 우선한다.
+- Tailwind CSS 유틸리티 조합은 `DESIGN.md`에 정의된 Panel, Button, Segmented Control, Search Input, Badge, Table, Chart 패턴을 따른다.
+- 색상은 `slate`, `blue`, `emerald`, `rose` 계열의 역할 규칙을 우선한다.
+- 가격, 거래량, 등락률, 날짜 등 숫자 데이터에는 `tabular-nums` 적용을 기본으로 한다.
+- 페이지 전체를 하나의 카드로 감싸거나, 카드 안에 다시 카드형 패널을 중첩하지 않는다.
+- 큰 그림자, 그라데이션 배경, 장식용 blob, 실시간 거래 화면처럼 긴장감 있는 시각 효과는 사용하지 않는다.
+- 둘 이상의 화면에서 반복되는 UI 패턴은 `shared/component`에 작성한다.
+- 특정 도메인에서만 사용하는 UI는 각 `features/{domain}/ui`에 작성한다.
+
 ## 네이밍 규칙
 
 | 역할        | 규칙                      |
