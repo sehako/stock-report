@@ -46,3 +46,26 @@ def test_fetch_daily_prices_starts_at_next_day_after_last_loaded_date(monkeypatc
     client.fetch_daily_prices("005930", date(2026, 7, 17))
 
     assert calls == [("005930", "2026-07-18")]
+
+
+def test_fetch_daily_prices_uses_requested_period_when_dates_are_provided(monkeypatch):
+    calls = []
+
+    def data_reader(symbol, start, end):
+        calls.append((symbol, start, end))
+        return pd.DataFrame()
+
+    monkeypatch.setitem(
+        __import__("sys").modules,
+        "FinanceDataReader",
+        SimpleNamespace(DataReader=data_reader),
+    )
+    client = FinanceDataReaderStockPriceClient()
+
+    client.fetch_daily_prices(
+        "005930",
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 1, 31),
+    )
+
+    assert calls == [("005930", "2024-01-01", "2024-01-31")]

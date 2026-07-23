@@ -24,6 +24,9 @@ class FakeCursor:
     def fetchall(self):
         return self.rows
 
+    def fetchone(self):
+        return self.rows[0] if self.rows else None
+
 
 class FakeConnection:
     def __init__(self, cursor=None):
@@ -58,6 +61,32 @@ def test_repository_reads_tracked_stocks_with_last_loaded_date():
     assert "LEFT JOIN stock_price" in sql
     assert "MAX(sp.trade_date)" in sql
     assert "s.tracked = true" in sql
+
+
+def test_repository_finds_stock_by_code_without_tracked_filter():
+    cursor = FakeCursor(rows=[(1, "KOSPI", "005930", "삼성전자", date(2026, 7, 17))])
+    connection = FakeConnection(cursor)
+    repository = PsycopgStockDailyPriceRepository(lambda: connection)
+
+    stock = repository.find_stock_by_code("005930")
+
+    assert stock.stock_id == 1
+    assert stock.stock_code == "005930"
+    method, sql, params = cursor.executed[0]
+    assert method == "execute"
+    assert "FROM stock s" in sql
+    assert "WHERE s.stock_code = %s" in sql
+    assert "s.tracked = true" not in sql
+    assert params == ("005930",)
+
+
+def test_repository_returns_none_when_stock_code_does_not_exist():
+    connection = FakeConnection(FakeCursor(rows=[]))
+    repository = PsycopgStockDailyPriceRepository(lambda: connection)
+
+    stock = repository.find_stock_by_code("123456")
+
+    assert stock is None
 
 
 def test_repository_upserts_stock_prices_with_conflict_update_and_commit():

@@ -25,11 +25,29 @@ LOG_LEVEL=INFO
 
 ## 실행
 
+옵션 없이 실행하면 기본 배치 흐름을 수행한다. 실행 순서는 종목 universe 갱신, tracked 종목 일봉 적재, 코스피/코스닥 지수 일봉 적재다.
+
 ```bash
 cd app/batch
 . .venv/bin/activate
 python -m batch.main
 ```
+
+특정 종목의 지정 기간 일봉만 다시 수집하려면 `--stock-code`, `--start-date`, `--end-date`를 함께 지정한다. `--stock-code`는 6자리 숫자 문자열만 허용한다.
+
+```bash
+python -m batch.main --stock-code 005930 --start-date 2024-01-01 --end-date 2024-01-31
+```
+
+특정 지수의 지정 기간 일봉만 다시 수집하려면 `--index-code`, `--start-date`, `--end-date`를 함께 지정한다. 지원 지수 코드는 `KOSPI`, `KOSDAQ`이며, 입력 대소문자는 구분하지 않는다.
+
+```bash
+python -m batch.main --index-code kospi --start-date 2024-01-01 --end-date 2024-01-31
+```
+
+`--start-date`와 `--end-date`는 `YYYY-MM-DD` 형식이며 둘 다 지정해야 한다. 기간 옵션만 단독으로 지정하거나, `--stock-code`와 `--index-code`를 동시에 지정하면 배치는 외부 FDR 호출과 DB 쓰기 전에 실패한다. 시작일이 종료일보다 늦은 경우, 지원하지 않는 지수 코드, 6자리 숫자가 아닌 종목 코드도 실패한다.
+
+지정 종목 재수집은 `stock` 테이블에 이미 존재하는 종목만 처리한다. 종목이 없으면 기본 배치로 universe를 먼저 갱신한 뒤 다시 실행한다.
 
 ## 테스트
 
@@ -68,3 +86,24 @@ FROM (
 ```
 
 기대 결과는 `0`이다.
+
+지정 종목 재수집 후 특정 기간의 저장 범위는 다음 쿼리로 확인한다.
+
+```sql
+SELECT s.stock_code, COUNT(*) AS row_count, MIN(sp.trade_date), MAX(sp.trade_date)
+FROM stock_price sp
+JOIN stock s ON s.id = sp.stock_id
+WHERE s.stock_code = '005930'
+  AND sp.trade_date BETWEEN DATE '2024-01-01' AND DATE '2024-01-31'
+GROUP BY s.stock_code;
+```
+
+지정 지수 재수집 후 특정 기간의 저장 범위는 다음 쿼리로 확인한다.
+
+```sql
+SELECT index_code, COUNT(*) AS row_count, MIN(trade_date), MAX(trade_date)
+FROM market_index_price
+WHERE index_code = 'KOSPI'
+  AND trade_date BETWEEN DATE '2024-01-01' AND DATE '2024-01-31'
+GROUP BY index_code;
+```

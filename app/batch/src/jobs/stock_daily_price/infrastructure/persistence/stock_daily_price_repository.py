@@ -45,6 +45,39 @@ class PsycopgStockDailyPriceRepository(StockDailyPriceRepository):
             if close is not None:
                 close()
 
+    def find_stock_by_code(self, stock_code: str) -> TrackedStock | None:
+        connection = self._connection_factory()
+        try:
+            cursor = connection.cursor()
+            row = cursor.execute(
+                """
+                SELECT
+                    s.id,
+                    s.market,
+                    s.stock_code,
+                    s.stock_name,
+                    MAX(sp.trade_date) AS last_loaded_date
+                FROM stock s
+                LEFT JOIN stock_price sp ON sp.stock_id = s.id
+                WHERE s.stock_code = %s
+                GROUP BY s.id, s.market, s.stock_code, s.stock_name
+                """,
+                (stock_code,),
+            ).fetchone()
+            if row is None:
+                return None
+            return TrackedStock(
+                stock_id=row[0],
+                market=row[1],
+                stock_code=row[2],
+                stock_name=row[3],
+                last_loaded_date=row[4],
+            )
+        finally:
+            close = getattr(connection, "close", None)
+            if close is not None:
+                close()
+
     def upsert_stock_prices(self, stock_id: int, prices: list[StockDailyPrice]) -> int:
         connection = self._connection_factory()
         try:

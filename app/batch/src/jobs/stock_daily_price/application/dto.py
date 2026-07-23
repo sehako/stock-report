@@ -1,4 +1,12 @@
 from dataclasses import dataclass, field
+from datetime import date
+
+
+@dataclass(frozen=True)
+class ReloadStockDailyPriceCommand:
+    stock_code: str
+    start_date: date
+    end_date: date
 
 
 @dataclass(frozen=True)
