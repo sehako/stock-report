@@ -21,14 +21,14 @@
 - [x] (2026-07-22) 기존 배치 계획 문서와 최근 커밋을 확인해 `docs/plans/batch` 아래 한국어 ExecPlan 관례를 확인했다.
 - [x] (2026-07-22) 구현 위치, 데이터 흐름, 검증 방법, 미결정 옵션 조합을 현재 저장소 상태 기준으로 계획했다.
 - [x] (2026-07-23) 구현 시작 전 미결정 옵션 조합과 지정 단건 실패 정책을 확정했다.
-- [ ] 실패하는 테스트를 먼저 작성한다.
-- [ ] CLI 옵션 파싱과 검증을 구현한다.
-- [ ] 종목 지정 재수집 흐름을 구현한다.
-- [ ] 지수 지정 재수집 흐름을 구현한다.
-- [ ] README 또는 관련 문서를 갱신한다.
-- [ ] 전체 테스트와 가능한 수동 검증을 완료한다.
-- [ ] 결과와 회고를 작성한다.
-- [ ] ExecPlan 최종 상태를 확인한다.
+- [x] (2026-07-23) CLI 옵션 파싱과 실행 모드 선택 테스트를 먼저 작성했고, `main(argv)` 미지원 실패를 확인한 뒤 구현했다.
+- [x] (2026-07-23) 종목 지정 재수집 runner, repository, FDR client 테스트를 먼저 작성했고, 각 RED 실패를 확인한 뒤 구현했다.
+- [x] (2026-07-23) 지수 지정 재수집 runner와 FDR client 테스트를 먼저 작성했고, 각 RED 실패를 확인한 뒤 구현했다.
+- [x] (2026-07-23) README에 기본 실행, 종목 지정 재수집, 지수 지정 재수집, 지원하지 않는 조합과 수동 확인 쿼리를 갱신했다.
+- [x] (2026-07-23) `cd app/batch && .venv/bin/python -m pytest`로 전체 자동 테스트 66개 통과를 확인했다.
+- [x] (2026-07-23) 로컬 PostgreSQL 접속 정보 `postgresql://app:app@localhost:5432/stock_report`와 외부 FDR 접근으로 종목/지수 지정 재수집 수동 통합 검증을 완료했다.
+- [x] (2026-07-23) 결과와 회고를 작성했다.
+- [x] (2026-07-23) ExecPlan 최종 상태를 확인했다.
 
 ## 예상 밖의 발견
 
@@ -51,6 +51,14 @@
 - 관찰: 참고 설계 문서에는 `python batch.py --start-date 2024-01-01 --end-date 2024-12-31` 예가 있지만, 이슈의 검증 흐름은 `--stock-code`와 기간 조합만 명확하게 제시한다.
   증거: `docs/specs/2026-07-15-stock-market-data-service-design.md`의 지정 실행 예시는 기간 단독 실행을 포함한다. `docs/issues/05-batch-targeted-reload-options.md`의 작업 범위는 종목 코드와 기간 조합, 지수 코드와 기간 조합을 명시하고, 검증 흐름도 `--stock-code 005930 --start-date 2024-01-01 --end-date 2024-01-31`이다.
   영향: 기간만 지정했을 때 모든 tracked 종목과 모든 지수를 재수집할지, 아니면 지원하지 않는 조합으로 볼지 구현 전에 확정해야 했다. 2026-07-23 결정으로 이번 이슈에서는 기간 단독 실행을 지원하지 않는 옵션 조합으로 처리한다.
+
+- 관찰: 작업트리에는 최초에 `app/batch/.venv`가 없었고, `python3 -m venv .venv`는 Python 3.9 환경을 만들어 `date | None` 타입 문법에서 테스트 수집 오류가 발생했다.
+  증거: `.venv/bin/python -m pytest tests/test_batch_main.py` 실행 시 `TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'`가 발생했다.
+  영향: 프로젝트 요구사항인 Python 3.11 이상에 맞춰 `python3.14 -m venv .venv`로 가상환경을 다시 만들고 테스트를 실행했다.
+
+- 관찰: 이 작업트리의 `app/batch`는 editable install 상태가 아니어서 직접 `python -m batch.main` 실행 시 모듈을 찾지 못했다.
+  증거: `DATABASE_URL=... .venv/bin/python -m batch.main --stock-code 005930 ...` 실행 시 `ModuleNotFoundError: No module named 'batch'`가 발생했다.
+  영향: 수동 통합 검증 명령에는 `PYTHONPATH=src`를 함께 지정해 현재 소스 트리의 `batch.main`을 실행했다. README의 준비 절차처럼 패키지가 설치된 환경에서는 `python -m batch.main`으로 실행할 수 있다.
 
 ## 결정 기록
 
@@ -135,7 +143,7 @@
 
 ## 구현 단계
 
-### [ ] 1. CLI 옵션 파싱과 검증 테스트를 먼저 작성한다
+### [x] 1. CLI 옵션 파싱과 검증 테스트를 먼저 작성한다
 
 - 변경 내용: 옵션 없는 실행, 종목 지정 실행, 지수 지정 실행, 잘못된 조합을 검증하는 테스트를 추가한다. `main()`을 직접 호출하기 쉽게 `argv`를 주입할 수 있는 작은 파싱 함수 또는 command 생성 함수를 분리하는 방향을 테스트로 고정한다.
 - 예상 변경 파일:
@@ -150,7 +158,7 @@
   - `--stock-code`와 `--index-code` 동시 지정, 기간 단독 지정, 날짜 한쪽 누락, 잘못된 날짜 형식, 시작일이 종료일보다 늦은 값은 명확한 오류로 실패한다.
   - `--stock-code 5930`, `--stock-code 005930.KS`, `--stock-code 삼성전자`, `--stock-code ABCDEF`는 DB 조회 전 명확한 오류로 실패한다.
 
-### [ ] 2. 종목 지정 재수집 command와 단일 종목 조회를 구현한다
+### [x] 2. 종목 지정 재수집 command와 단일 종목 조회를 구현한다
 
 - 변경 내용: `stock_daily_price` application DTO에 지정 종목 재수집 command를 추가하고, repository 인터페이스와 psycopg 구현에 `stock_code`로 단일 종목을 조회하는 메서드를 추가한다. runner는 command가 없으면 기존 tracked 전체 흐름을 유지하고, command가 있으면 단일 종목과 지정 기간만 처리한다.
 - 예상 변경 파일:
@@ -169,7 +177,7 @@
   - 지정 실행에서 FDR 응답이 비었거나, 정규화 후 가격이 없거나, 기간 필터 후 가격이 없거나, upsert 결과가 0이면 실패한다.
   - 기존 tracked 전체 실행 테스트가 그대로 통과한다.
 
-### [ ] 3. 종목 FDR client에 지정 기간 조회를 추가한다
+### [x] 3. 종목 FDR client에 지정 기간 조회를 추가한다
 
 - 변경 내용: `FinanceDataReaderStockPriceClient`가 기본 증분 실행과 지정 기간 실행을 모두 표현할 수 있게 메서드 인자를 확장한다. 기존 마지막 적재일 기반 호출은 유지하고, 지정 기간 command가 있을 때는 `start_date`와 `end_date`를 ISO 문자열로 넘긴다.
 - 예상 변경 파일:
@@ -181,7 +189,7 @@
   - 기존 최초 적재와 마지막 적재일 다음 날짜 호출 테스트가 통과한다.
   - 지정 기간 조회는 fake FDR 호출 목록에서 `("005930", "2024-01-01", "2024-01-31")`처럼 확인된다.
 
-### [ ] 4. 지수 지정 재수집 command와 단일 지수 실행을 구현한다
+### [x] 4. 지수 지정 재수집 command와 단일 지수 실행을 구현한다
 
 - 변경 내용: `market_index_daily_price` application DTO에 지정 지수 재수집 command를 추가하고, runner가 command가 있을 때 지원 대상 목록에서 단일 지수만 선택하게 한다. 지원하지 않는 `index_code`는 외부 호출 전에 명확한 오류로 처리한다.
 - 예상 변경 파일:
@@ -197,7 +205,7 @@
   - 지정 실행에서 FDR 응답이 비었거나, 정규화 후 가격이 없거나, 기간 필터 후 가격이 없거나, upsert 결과가 0이면 실패한다.
   - 기존 전체 지수 순회 실행 테스트가 그대로 통과한다.
 
-### [ ] 5. 지수 FDR client에 지정 기간 조회를 추가한다
+### [x] 5. 지수 FDR client에 지정 기간 조회를 추가한다
 
 - 변경 내용: `FinanceDataReaderMarketIndexPriceClient`가 기본 증분 실행과 지정 기간 실행을 모두 표현할 수 있게 메서드 인자를 확장한다. 지정 기간 command가 있을 때는 `target.fdr_symbol`, `start_date`, `end_date`를 FDR에 넘긴다.
 - 예상 변경 파일:
@@ -209,7 +217,7 @@
   - 기존 최초 적재와 마지막 적재일 다음 날짜 호출 테스트가 통과한다.
   - 지정 기간 조회는 fake FDR 호출 목록에서 `("KS11", "2024-01-01", "2024-01-31")`처럼 확인된다.
 
-### [ ] 6. README와 수동 검증 절차를 갱신한다
+### [x] 6. README와 수동 검증 절차를 갱신한다
 
 - 변경 내용: `app/batch/README.md`에 옵션 없는 기본 실행과 지정 재수집 실행 예시를 추가한다. 지원하지 않는 조합과 날짜 형식, 수동 중복 확인 쿼리를 함께 적는다.
 - 예상 변경 파일:
@@ -221,7 +229,7 @@
   - 사용자가 README만 보고 기본 실행, 종목 지정 재수집, 지수 지정 재수집 명령을 구분할 수 있다.
   - 전체 자동 테스트가 통과한다.
 
-### [ ] 7. 수동 통합 검증을 수행한다
+### [x] 7. 수동 통합 검증을 수행한다
 
 - 변경 내용: 가능한 환경에서 실제 PostgreSQL과 외부 FDR 네트워크 접근으로 지정 재수집을 실행하고, 중복 row가 없는지 확인한다. 이 단계는 코드 변경이 아니라 검증 기록 갱신이다.
 - 예상 변경 파일:
@@ -328,8 +336,20 @@ FDR 호출이 실패하거나 정규화 가능한 row가 없거나 DB 저장이 
 
 ## 결과와 회고
 
-아직 구현 전이다. 구현이 끝나면 실제 변경 파일, 자동 테스트 결과, 수동 검증 여부, 초기 계획과 달라진 점을 이 섹션에 기록한다.
+2026-07-23 구현 결과, Python 배치 진입점 `app/batch/src/batch/main.py`는 `--stock-code`, `--index-code`, `--start-date`, `--end-date`를 파싱하고 옵션 없는 기본 실행과 지정 종목 또는 지정 지수 재수집 실행을 구분한다. 옵션 없는 기본 실행은 종목 universe 갱신, tracked 종목 일봉 적재, 코스피/코스닥 지수 일봉 적재 순서를 유지한다. 지정 종목 실행은 `ReloadStockDailyPriceCommand`를 `StockDailyPriceRunner`에 전달하고, 지정 지수 실행은 `ReloadMarketIndexDailyPriceCommand`를 `MarketIndexDailyPriceRunner`에 전달한다.
+
+종목 지정 재수집은 `stock_code`로 `stock` row를 조회하고, FDR에 `start_date`와 `end_date`를 넘긴 뒤 정규화된 가격 중 요청 기간 안의 row만 `stock_price`에 upsert한다. 지수 지정 재수집은 `KOSPI`, `KOSDAQ` 지원 목록에서 단일 지수를 찾고, FDR 심볼 `KS11`, `KQ11`로 지정 기간을 조회한 뒤 요청 기간 안의 row만 `market_index_price`에 upsert한다. 지정 단건 실행에서 대상이 없거나, FDR 응답이 비었거나, 정규화 또는 기간 필터 후 저장 가능한 row가 없거나, upsert 결과가 0이면 예외로 실패한다.
+
+자동 검증은 `cd app/batch && .venv/bin/python -m pytest`로 수행했고 66개 테스트가 모두 통과했다. TDD 순서로 `tests/test_batch_main.py`, `tests/jobs/stock_daily_price/test_stock_daily_price_runner.py`, `tests/jobs/stock_daily_price/test_stock_daily_price_repository.py`, `tests/jobs/stock_daily_price/test_finance_data_reader_client.py`, `tests/jobs/market_index_daily_price/test_market_index_daily_price_runner.py`, `tests/jobs/market_index_daily_price/test_market_index_finance_data_reader_client.py`에 실패 테스트를 먼저 추가해 실패를 확인한 뒤 구현했다. `main.py`는 지정 실행 runner가 실패 결과를 반환하거나 저장 row 0건을 반환할 때도 비정상 종료하도록 확인한다.
+
+수동 통합 검증도 완료했다. 이 작업트리에서는 패키지를 editable install하지 않았기 때문에 `PYTHONPATH=src`를 붙여 실행했다. 종목 지정 검증 명령은 `cd app/batch && PYTHONPATH=src DATABASE_URL=postgresql://app:app@localhost:5432/stock_report LOG_LEVEL=INFO .venv/bin/python -m batch.main --stock-code 005930 --start-date 2024-01-01 --end-date 2024-01-31`이고, 결과는 `stock daily price targeted reload completed: stock_code=005930 saved=22 excluded=0 duplicated=0`이었다. 지수 지정 검증 명령은 `cd app/batch && PYTHONPATH=src DATABASE_URL=postgresql://app:app@localhost:5432/stock_report LOG_LEVEL=INFO .venv/bin/python -m batch.main --index-code KOSPI --start-date 2024-01-01 --end-date 2024-01-31`이고, 결과는 `market index daily price targeted reload completed: index_code=KOSPI saved=22 excluded=0 duplicated=0`이었다.
+
+수동 DB 확인 결과는 `stock_price_duplicate_count=0`, `stock_price_005930_2024_01=[('005930', 22, datetime.date(2024, 1, 2), datetime.date(2024, 1, 31))]`, `market_index_price_duplicate_count=0`, `market_index_price_KOSPI_2024_01=[('KOSPI', 22, datetime.date(2024, 1, 2), datetime.date(2024, 1, 31))]`이었다. 2024년 1월 1일은 거래일이 아니므로 실제 저장 범위의 최소 거래일은 2024년 1월 2일이었다. 초기 계획과 달라진 구현 방향은 없다.
 
 ## 계획 변경 메모
 
 2026-07-23 변경: 구현 전 `grill-me` 검토에서 확정한 여섯 가지 정책을 반영했다. 기간 단독 실행 금지, `--stock-code`와 `--index-code` 동시 지정 금지, `--index-code` 대소문자 허용 후 대문자 정규화, 지정 단건 실패 시 비정상 종료, `--stock-code` 6자리 숫자 형식 검증, 존재하지 않는 종목코드의 runner 실행 오류 처리를 결정 기록과 구현 단계에 반영했다. 변경 이유는 구현자가 옵션 조합과 실패 semantics를 추측하지 않게 하기 위해서다.
+
+2026-07-23 변경: 구현 완료 후 진행 상황, 구현 단계 체크박스, 예상 밖의 발견, 결과와 회고를 실제 코드와 검증 결과에 맞게 갱신했다. 당시 수동 통합 검증은 환경 의존 작업이어서 미완료로 남겼다.
+
+2026-07-23 변경: 사용자의 추가 요청에 따라 로컬 PostgreSQL과 외부 FDR을 사용하는 수동 통합 검증을 수행하고 결과를 진행 상황, 예상 밖의 발견, 결과와 회고에 반영했다. 종목과 지수 지정 재수집 모두 22건 저장됐고, `stock_price`와 `market_index_price` 중복 row 수는 0건이었다.
