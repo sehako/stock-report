@@ -159,6 +159,8 @@ GET /api/market-indexes/{indexCode}/prices?period=1M|3M|1Y
 
 지정한 지수의 기간별 일봉 데이터를 반환한다.
 
+`indexCode`는 내부 지수 코드인 `KOSPI`, `KOSDAQ`만 허용한다. `period`는 `1M`, `3M`, `1Y`만 허용하며, 기간 종료일은 서버 현재 날짜가 아니라 해당 지수의 저장된 최신 거래일로 계산한다. 응답에는 `indexCode`, `period`, `startDate`, `endDate`, `items`를 포함한다. `items` 항목에는 `tradeDate`, `openPrice`, `highPrice`, `lowPrice`, `closePrice`, `volume`, `changeRatePercent`를 포함하며 거래일 오름차순으로 반환한다. 데이터가 없는 유효 지수는 `startDate`, `endDate`가 `null`이고 `items`가 빈 목록인 200 응답으로 처리한다.
+
 ### 종목 목록 조회
 
 ```http
@@ -189,6 +191,8 @@ GET /api/stocks/{stockCode}/prices?period=1M|3M|1Y
 ```
 
 지정한 종목의 기간별 일봉 데이터를 반환한다.
+
+종목 차트 조회도 지수 차트 조회와 같은 기간 기준을 사용한다. 기간 종료일은 해당 종목의 저장된 최신 거래일이며, 응답에는 기간 계산 결과를 확인할 수 있는 `startDate`, `endDate`와 일봉 `items`를 포함한다.
 
 ## 배치 설계
 
@@ -257,7 +261,9 @@ python -m batch.main --index-code KOSDAQ --start-date 2024-01-01 --end-date 2024
 - 존재하지 않는 종목코드 요청은 404 응답으로 처리한다.
 - 존재하지 않는 지수 코드 요청은 404 응답으로 처리한다.
 - 지원하지 않는 기간 값은 400 응답으로 처리한다.
+- 필수 기간 값이 누락된 차트 API 요청은 400 응답으로 처리한다.
 - 데이터가 아직 적재되지 않은 경우 빈 목록 또는 명확한 상태 응답을 반환한다. `GET /api/market-indexes`는 빈 목록 대신 `KOSPI`, `KOSDAQ` 두 항목과 상태 값을 반환한다.
+- 차트 API에서 데이터가 아직 적재되지 않은 유효한 지수 또는 종목은 빈 `items` 목록과 nullable 기간 메타데이터를 반환한다.
 
 ### 화면 오류
 
